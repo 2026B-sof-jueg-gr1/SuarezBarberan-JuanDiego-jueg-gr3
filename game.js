@@ -53,7 +53,6 @@ function spawnCoin() {
     const x = Phaser.Math.Between(50, 750);
     const y = Phaser.Math.Between(80, 550);
     
-    // 2. HUEVO ALIENÍGENA EN ARTE ASCII (Cúmulo orgánico e irregular de símbolos sobrepuestos)
     const eggAscii = 
         " *Oo* \n" +
         "o@@@O\n" +
@@ -62,11 +61,11 @@ function spawnCoin() {
     let coin = scene.add.text(x, y, eggAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
-        fill: '#ff0055' // Fucsia/Rojo alienígena
+        fill: '#ff0055'
     });
     
     scene.physics.add.existing(coin);
-    coin.body.setSize(30, 35); // Ajustar hitbox
+    coin.body.setSize(30, 35);
     coins.add(coin);
 }
 
@@ -74,7 +73,6 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
-    // 3. ENEMIGO (Cúmulo guardián hecho con símbolos ásperos)
     const enemyAscii = 
         "#####\n" +
         "#X#X#\n" +
@@ -83,7 +81,7 @@ function spawnEnemy() {
     let enemy = scene.add.text(x, y, enemyAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
-        fill: '#ffaa00' // Naranja peligroso
+        fill: '#ffaa00'
     });
     
     scene.physics.add.existing(enemy);
@@ -129,11 +127,12 @@ function endGame() {
 function update() {
     if (lives <= 0) return;
 
+    // CORREGIDO: Usando player.body para manejar las velocidades del texto ASCII
     player.body.setVelocity(0);
     if (cursors.left.isDown) player.body.setVelocityX(-300);
-    else if (cursors.right.isDown) player.setVelocityX(300);
-    if (cursors.up.isDown) player.setVelocityY(-300);
-    else if (cursors.down.isDown) player.setVelocityY(300);
+    else if (cursors.right.isDown) player.body.setVelocityX(300);
+    if (cursors.up.isDown) player.body.setVelocityY(-300);
+    else if (cursors.down.isDown) player.body.setVelocityY(300);
 
     const speed = 90 + score * 5;
     enemies.getChildren().forEach(e => scene.physics.moveToObject(e, player, speed));
