@@ -19,12 +19,15 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 400;
 
-// Variables de recolección y extracción
+// Variables de recolección y extracción de 1 minuto
 let collectingCoin = null;
 let collectTimer = 0;
-let collectDuration = 10000; // 10 segundos para tomar un huevo
+let collectDuration = 10000; // 10 segundos exactos para tomar un huevo
 let extracting = false;
-let extractionTimer = 15000; // 15 segundos para la extracción
+let extractionTimer = 60000; // 60 segundos (1 minuto) para la llegada de la nave
+let extractionZone = null;
+let extractionPoint = { x: 0, y: 0 };
+let extractingStartTime = 0;
 
 function create() {
     scene = this;
@@ -37,23 +40,30 @@ function create() {
     extracting = false;
     collectingCoin = null;
     collectTimer = 0;
+    extractionZone = null;
+    window.extractingStartTime = 0;
 
-    landingX = Phaser.Math.Between(200, 600);
+    landingX = Phaser.Math.Between(250, 550);
 
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
 
-    // 1. COLOCAR LOS HUEVOS EN EL MAPA
+    // 1. COLOCAR LOS HUEVOS EN EL MAPA PRINCIPAL
     for (let i = 0; i < 10; i++) {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. COLOCAR LAS ARAÑAS EN LOS BORDES LEJANOS
-    for (let i = 0; i < 4; i++) {
-        let edgeX = Math.random() < 0.5 ? Phaser.Math.Between(20, 100) : Phaser.Math.Between(700, 780);
-        let edgeY = Math.random() < 0.5 ? Phaser.Math.Between(20, 100) : Phaser.Math.Between(450, 550);
-        spawnEnemy(edgeX, edgeY);
+    // 2. ARAÑAS GENERADAS FUERA DEL MAPA (En los confines del planeta: X negativo o mayor a 800, Y negativo o mayor a 600)
+    for (let i = 0; i < 5; i++) {
+        let side = Phaser.Math.Between(0, 3);
+        let outX, outY;
+        if (side === 0) { outX = Phaser.Math.Between(-300, -100); outY = Phaser.Math.Between(-300, 900); } // Izquierda muy lejana
+        else if (side === 1) { outX = Phaser.Math.Between(900, 1100); outY = Phaser.Math.Between(-300, 900); } // Derecha muy lejana
+        else if (side === 2) { outX = Phaser.Math.Between(-300, 1100); outY = Phaser.Math.Between(-300, -100); } // Arriba muy lejana
+        else { outX = Phaser.Math.Between(-300, 1100); outY = Phaser.Math.Between(700, 900); } // Abajo muy lejana
+
+        spawnEnemy(outX, outY);
     }
 
     enemies.getChildren().forEach(e => e.setData('active', false));
@@ -106,9 +116,7 @@ function create() {
                 ease: 'Linear',
                 onComplete: () => {
                     beam.destroy();
-                    
-                    // EFECTO DE TEMBLOR DE TIERRA / CÁMARA AL TOCAR EL SUELO
-                    scene.cameras.main.shake(800, 0.015); // Tiembla 0.8s con intensidad de 1.5%
+                    scene.cameras.main.shake(800, 0.015); // Temblor al tocar tierra
 
                     introTween3 = scene.tweens.add({
                         targets: ship,
@@ -119,7 +127,7 @@ function create() {
                         onComplete: () => ship.destroy()
                     });
 
-                    // Las arañas detectan el impacto y se activan (se verán en el minimapa avanzando desde lejos)
+                    // Las arañas se activan y empiezan su largo viaje desde el exterior del planeta hacia ti
                     enemies.getChildren().forEach(e => e.setData('active', true));
                     gameStarted = true;
                 }
@@ -189,8 +197,11 @@ function hitEnemy(p, enemy) {
     livesText.setText('Salud: ' + lives);
     enemy.destroy();
     
-    let edgeX = Math.random() < 0.5 ? 30 : 750;
-    spawnEnemy(edgeX, Phaser.Math.Between(100, 500));
+    // Si muere una, reaparece otra muy a lo lejos fuera del mapa
+    let side = Phaser.Math.Between(0, 3);
+    let outX = side === 0 ? -200 : (side === 1 ? 1000 : Phaser.Math.Between(-200, 1000));
+    let outY = side === 2 ? -200 : (side === 3 ? 800 : Phaser.Math.Between(-200, 800));
+    spawnEnemy(outX, outY);
     enemies.getChildren().forEach(e => e.setData('active', true));
 
     if (lives <= 0) return endGame();
@@ -205,6 +216,9 @@ function hitEnemy(p, enemy) {
 
 function shootBullet() {
     if (!gameStarted || scene.time.now < lastFired) return;
+
+    collectingCoin = null;
+    collectTimer = 0;
 
     let bullet = scene.add.text(player.x + 15, player.y + 15, '---', {
         fontFamily: 'Courier, monospace',
@@ -227,10 +241,12 @@ function shootBullet() {
 function destroyEnemy(bullet, enemy) {
     bullet.destroy();
     enemy.destroy();
-    scene.time.delayedCall(3000, () => {
+    scene.time.delayedCall(5000, () => {
         if (lives > 0) {
-            let edgeX = Math.random() < 0.5 ? 30 : 750;
-            spawnEnemy(edgeX, Phaser.Math.Between(100, 500));
+            let side = Phaser.Math.Between(0, 3);
+            let outX = side === 0 ? -200 : (side === 1 ? 1000 : Phaser.Math.Between(-200, 1000));
+            let outY = side === 2 ? -200 : (side === 3 ? 800 : Phaser.Math.Between(-200, 800));
+            spawnEnemy(outX, outY);
             enemies.getChildren().forEach(e => {
                 if (!e.getData('active')) e.setData('active', true);
             });
@@ -241,10 +257,37 @@ function destroyEnemy(bullet, enemy) {
 function triggerExtraction() {
     if (extracting || !gameStarted || isPaused) return;
     extracting = true;
-    extractionText.setText('EXTRACCIÓN EN CAMINO...');
+    extractionText.setText('EXTRACCIÓN SOLICITADA');
+    window.extractingStartTime = scene.time.now;
+
+    extractionPoint.x = Phaser.Math.Between(150, 650);
+    extractionPoint.y = Phaser.Math.Between(150, 450);
+
+    extractionZone = scene.add.text(extractionPoint.x, extractionPoint.y, '[ X ]', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '18px',
+        fill: '#00ffff'
+    }).setOrigin(0.5);
+
+    scene.tweens.add({
+        targets: extractionZone,
+        alpha: 0.2,
+        duration: 500,
+        yoyo: true,
+        repeat: -1
+    });
 
     scene.time.delayedCall(extractionTimer, () => {
-        if (lives > 0) triggeredVictory();
+        if (lives > 0) {
+            let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
+            if (distance < 60) {
+                triggeredVictory();
+            } else {
+                extractionText.setText('¡EXTRACCIÓN FALLIDA (FUERA DE ZONA)!');
+                extracting = false;
+                if (extractionZone) extractionZone.destroy();
+            }
+        }
     });
 }
 
@@ -365,30 +408,35 @@ function update(time, delta) {
     }
 
     if (extracting) {
-        let timeLeft = Math.ceil((extractionTimer - scene.time.now) / 1000);
-        if (timeLeft < 0) timeLeft = 0;
-        timerText.setText('Extracción en: ' + timeLeft + 's');
+        let remainingTime = Math.max(0, Math.ceil((extractionTimer - (scene.time.now - window.extractingStartTime)) / 1000));
+        timerText.setText('Evacuación en: ' + remainingTime + 's (¡Ve al [ X ])');
     }
 
     player.body.setVelocity(0);
     
-    // Mecánica de recolección de 10 segundos
+    // Si se mueve o dispara mientras recolecta, SE CANCELA la recolección
     if (collectingCoin) {
-        collectTimer += delta;
-        let progress = Math.floor((collectTimer / collectDuration) * 100);
-        timerText.setText('Recolectando: ' + progress + '%');
+        if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown || Phaser.Input.Keyboard.JustDown(attackKey)) {
+            collectingCoin = null;
+            collectTimer = 0;
+            timerText.setText(extracting ? timerText.text : '');
+        } else {
+            collectTimer += delta;
+            let progress = Math.floor((collectTimer / collectDuration) * 100);
+            timerText.setText('Recolectando: ' + progress + '%');
 
-        if (Phaser.Math.Distance.Between(player.x, player.y, collectingCoin.x, collectingCoin.y) > 50) {
-            collectingCoin = null;
-            collectTimer = 0;
-            timerText.setText('');
-        } else if (collectTimer >= collectDuration) {
-            collectingCoin.destroy();
-            collectingCoin = null;
-            collectTimer = 0;
-            score++;
-            scoreText.setText('Huevos: ' + score + ' / 10');
-            timerText.setText('');
+            if (Phaser.Math.Distance.Between(player.x, player.y, collectingCoin.x, collectingCoin.y) > 55) {
+                collectingCoin = null;
+                collectTimer = 0;
+                timerText.setText('');
+            } else if (collectTimer >= collectDuration) {
+                collectingCoin.destroy();
+                collectingCoin = null;
+                collectTimer = 0;
+                score++;
+                scoreText.setText('Huevos: ' + score + ' / 10');
+                timerText.setText('');
+            }
         }
     } else {
         if (cursors.left.isDown) {
@@ -399,8 +447,11 @@ function update(time, delta) {
             player.setData('facing', 'right');
         }
 
-        if (cursors.up.isDown) player.body.setVelocityY(-300);
-        else if (cursors.down.isDown) player.body.setVelocityY(300);
+        if (cursors.up.isDown) {
+            player.body.setVelocityY(-300);
+        } else if (cursors.down.isDown) {
+            player.body.setVelocityY(300);
+        }
 
         coins.getChildren().forEach(coin => {
             if (coin.active && Phaser.Math.Distance.Between(player.x, player.y, coin.x, coin.y) < 40) {
@@ -414,7 +465,7 @@ function update(time, delta) {
         shootBullet();
     }
 
-    const speed = 100;
+    const speed = 75; // Velocidad de las arañas equilibrada para dar tiempo táctico
     player.setDepth(player.y);
 
     enemies.getChildren().forEach(e => {
@@ -470,31 +521,38 @@ function drawMinimap() {
         .setStrokeStyle(2, 0x00ff41);
     scene.minimapContainer.add(bg);
 
-    let label = scene.add.text(mapX + 8, mapY + 6, 'RADAR', { fontSize: '10px', fill: '#00ff41', fontFamily: 'Courier' });
+    let label = scene.add.text(mapX + 8, mapY + 6, 'RADAR PLANETARIO', { fontSize: '9px', fill: '#00ff41', fontFamily: 'Courier' });
     scene.minimapContainer.add(label);
 
-    function scaleX(x) { return mapX + (x / 800) * mapW; }
-    function scaleY(y) { return mapY + 20 + (y / 600) * (mapH - 25); }
+    // Mapeo amplio para abarcar todo el planeta (incluyendo el exterior)
+    function scaleX(x) { return mapX + Phaser.Math.Clamp((x / 800) * mapW, 2, mapW - 2); }
+    function scaleY(y) { return mapY + 20 + Phaser.Math.Clamp((y / 600) * (mapH - 25), 2, mapH - 27); }
 
-    // Dibujar huevos
+    // Dibujar huevos en el planeta
     coins.getChildren().forEach(coin => {
         if (coin.active) {
-            let dot = scene.add.rectangle(scaleX(coin.x), scaleY(coin.y), 3, 3, 0xff0055);
+            let dot = scene.add.rectangle(scaleX(coin.x), scaleY(coin.y), 2, 2, 0xff0055);
             scene.minimapContainer.add(dot);
         }
     });
 
-    // Dibujar enemigos (se verá en el minimapa cómo avanzan desde los bordes hacia el centro)
+    // Dibujar zona de extracción si está activa
+    if (extracting && extractionZone) {
+        let exDot = scene.add.rectangle(scaleX(extractionPoint.x), scaleY(extractionPoint.y), 4, 4, 0x00ffff);
+        scene.minimapContainer.add(exDot);
+    }
+
+    // Dibujar enemigos viniendo desde el exterior en el radar
     enemies.getChildren().forEach(e => {
         if (e.active) {
-            let dot = scene.add.rectangle(scaleX(e.x), scaleY(e.y), 3, 3, 0xffaa00);
+            let dot = scene.add.rectangle(scaleX(e.x), scaleY(e.y), 2, 2, 0xffaa00);
             scene.minimapContainer.add(dot);
         }
     });
 
-    // Dibujar jugador
+    // Dibujar al jugador
     if (player && player.alpha > 0) {
-        let pDot = scene.add.rectangle(scaleX(player.x), scaleY(player.y), 4, 4, 0x00ff41);
+        let pDot = scene.add.rectangle(scaleX(player.x), scaleY(player.y), 3, 3, 0x00ff41);
         scene.minimapContainer.add(pDot);
     }
 }
