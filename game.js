@@ -2,7 +2,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#05050a',
+    backgroundColor: '#1a0508', // Fondo ambiental general con tinte rojo oscuro
     physics: { default: 'arcade' },
     scene: { create, update }
 };
@@ -19,19 +19,19 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 400;
 
-// Variables de recolección y extracción ajustadas
+// Variables de recolección y extracción
 let collectingCoin = null;
 let collectTimer = 0;
-let collectDuration = 10000; // 10 segundos para tomar un huevo
+let collectDuration = 10000;
 let extracting = false;
-let extractionTotalTimer = 10000; // 10 segundos de espera inicial
-let extractionCountdownTimer = 5000; // 5 segundos para llegar a la nave
+let extractionTotalTimer = 10000;
+let extractionCountdownTimer = 5000;
 let extractionZone = null;
 let extractionShip = null;
 let extractionBeam = null;
 let extractionPoint = { x: 0, y: 0 };
 let extractingStartTime = 0;
-let extractionPhase = 0; // 0: Esperando, 1: Nave en punto (5s restantes), 2: Subiendo
+let extractionPhase = 0;
 
 function create() {
     scene = this;
@@ -52,16 +52,64 @@ function create() {
 
     landingX = Phaser.Math.Between(250, 550);
 
+    // FILTRO AMBIENTAL ROJIZO (Tipo luz de castillo renderizado por computadora)
+    let ambientRedOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.12);
+    ambientRedOverlay.setDepth(9999); // Siempre por encima de todo dando atmósfera
+
+    // GENERAR SUELO Y CÉSPED ROJO ROSADIZO PROCEDURAL
+    const cols = 55;
+    const rows = 22;
+    let groundGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
+    let grassGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (r >= rows - 5 || Math.random() < 0.10) {
+                groundGrid[r][c] = ".";
+            }
+        }
+    }
+
+    for (let c = 0; c < cols; c += 2) {
+        if (Math.random() < 0.8) {
+            let height = Phaser.Math.Between(3, 8);
+            let startRow = rows - 5 - height + Phaser.Math.Between(0, 2);
+            for (let h = 0; h < height; h++) {
+                let currentRow = startRow + h;
+                if (currentRow >= 0 && currentRow < rows) {
+                    grassGrid[currentRow][c] = "Y"; // Tallos de césped rojo rosadizo
+                }
+            }
+        }
+    }
+
+    let groundText = groundGrid.map(row => row.join("")).join("\n");
+    let grassText = grassGrid.map(row => row.join("")).join("\n");
+
+    // Suelo base en tonos oscuros/rojizos
+    scene.add.text(40, 120, groundText, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '15px',
+        fill: '#4a1525'
+    }).setDepth(-2);
+
+    // Césped rojo rosadizo vibrante
+    scene.add.text(40, 120, grassText, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '15px',
+        fill: '#ff4d79'
+    }).setDepth(-1);
+
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
 
-    // 1. COLOCAR LOS HUEVOS EN EL MAPA
+    // 1. COLOCAR LOS HUEVOS ROJOS (Diferenciados por diseño hexagonal/brillante)
     for (let i = 0; i < 10; i++) {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. ARAÑAS GENERADAS FUERA DEL MAPA
+    // 2. ARAÑAS AFUERA DEL MAPA
     for (let i = 0; i < 5; i++) {
         let side = Phaser.Math.Between(0, 3);
         let outX, outY;
@@ -141,7 +189,7 @@ function create() {
         }
     });
 
-    scoreText = this.add.text(16, 16, 'Huevos: 0 / 10', { fontSize: '18px', fill: '#00ff41', fontFamily: 'Courier' });
+    scoreText = this.add.text(16, 16, 'Huevos: 0 / 10', { fontSize: '18px', fill: '#ff4d79', fontFamily: 'Courier' });
     livesText = this.add.text(16, 42, 'Salud: 3', { fontSize: '18px', fill: '#ff0055', fontFamily: 'Courier' });
     extractionText = this.add.text(16, 68, '[E] Solicitar Extracción', { fontSize: '16px', fill: '#00ffff', fontFamily: 'Courier' });
     timerText = this.add.text(16, 94, '', { fontSize: '16px', fill: '#ffaa00', fontFamily: 'Courier' });
@@ -151,20 +199,21 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.KeyF);
     extractKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 }
 
 function spawnStaticCoin(x, y) {
-    const eggAscii = 
-        " *Oo* \n" +
-        "o@@@O\n" +
-        " *o0* ";
+    // Huevo rojo con diseño claramente diferenciado (núcleo brillante y romboide)
+    const redEggAscii = 
+        "  /\\  \n" +
+        " <##> \n" +
+        "  \\/  ";
 
-    let coin = scene.add.text(x, y, eggAscii, {
+    let coin = scene.add.text(x, y, redEggAscii, {
         fontFamily: 'Courier, monospace',
-        fontSize: '14px',
-        fill: '#ff0055'
+        fontSize: '15px',
+        fill: '#ff1a40'
     });
     
     scene.physics.add.existing(coin);
@@ -265,7 +314,6 @@ function triggerExtraction() {
     extractionPhase = 0;
     window.extractingStartTime = scene.time.now;
 
-    // Generar punto de extracción aleatorio
     extractionPoint.x = Phaser.Math.Between(150, 650);
     extractionPoint.y = Phaser.Math.Between(150, 450);
 
@@ -283,13 +331,11 @@ function triggerExtraction() {
         repeat: -1
     });
 
-    // A los 10 segundos, la nave llega y empieza la cuenta atrás de 5 segundos
     scene.time.delayedCall(extractionTotalTimer, () => {
         if (lives > 0 && extracting) {
-            extractionPhase = 1; // Fase de llegada de la nave
+            extractionPhase = 1;
             if (extractionZone) extractionZone.destroy();
 
-            // Dibujar la nave flotando en el punto de extracción
             const shipAscii = 
                 "   /===\\   \n" +
                 "  [=====]  \n" +
@@ -304,12 +350,10 @@ function triggerExtraction() {
 
             extractionBeam = scene.add.rectangle(extractionPoint.x, extractionPoint.y - 60, 50, 120, 0x00ffff, 0.3).setOrigin(0.5, 0);
 
-            // A los 5 segundos de espera flotando, evaluamos si el jugador está dentro
             scene.time.delayedCall(extractionCountdownTimer, () => {
                 if (lives > 0 && extracting && extractionPhase === 1) {
                     let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
                     if (distance < 50) {
-                        // ¡Éxito! Iniciar animación de abducción/subida a la nave
                         extractionPhase = 2;
                         player.body.setVelocity(0);
 
@@ -336,7 +380,7 @@ function triggerExtraction() {
 
 function triggeredVictory() {
     scene.physics.pause();
-    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setDepth(10000);
 
     const victoryArt = 
         "  __  __ ___ ____ ___ ___  _   _    ____ _   _ __  __ ___  _     ____    _    \n" +
@@ -350,26 +394,26 @@ function triggeredVictory() {
         fontSize: '10px',
         fill: '#00ff41',
         align: 'center'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10001);
 
     scene.add.text(400, 350, 'Huevos extraídos: ' + score + ' / 10', {
         fontFamily: 'Courier, monospace',
         fontSize: '16px',
         fill: '#ffffff'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10001);
 
     scene.add.text(400, 400, 'Presiona ESPACIO para volver a jugar', {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
         fill: '#00ff41'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10001);
 
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
 function endGame() {
     scene.physics.pause();
-    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setDepth(10000);
 
     const cleanDefeat = 
         " __  __ ___ ____ ___ ___  _   _      ___ _    _     ___ ____    _    \n" +
@@ -383,13 +427,14 @@ function endGame() {
         fontSize: '12px',
         fill: '#ff0055',
         align: 'center'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10001);
 
     scene.add.text(400, 350, 'Presiona ESPACIO para reintentar', {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
         fill: '#ffffff'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10001);
+
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
@@ -404,7 +449,7 @@ function update(time, delta) {
             if (introTween2) introTween2.pause();
             if (introTween3) introTween3.pause();
 
-            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75);
+            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75).setDepth(10000);
             pauseElements.push(bgOverlay);
 
             const pauseArt = 
@@ -419,14 +464,14 @@ function update(time, delta) {
                 fontSize: '16px',
                 fill: '#00ff41',
                 align: 'center'
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(10001);
             pauseElements.push(asciiTitle);
 
             let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
                 fontFamily: 'Courier, monospace',
                 fontSize: '18px',
                 fill: '#ffffff'
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(10001);
             pauseElements.push(subText);
 
         } else {
@@ -450,7 +495,6 @@ function update(time, delta) {
         triggerExtraction();
     }
 
-    // Actualizar la línea de extracción unificada
     if (extracting) {
         let elapsedTime = scene.time.now - window.extractingStartTime;
         if (extractionPhase === 0) {
@@ -465,7 +509,6 @@ function update(time, delta) {
         extractionText.setText('[E] Solicitar Extracción');
     }
 
-    // Si está en fase 2 (subiendo a la nave), bloqueamos el movimiento normal
     if (extractionPhase === 2) {
         player.body.setVelocity(0);
         return;
@@ -481,7 +524,7 @@ function update(time, delta) {
         } else {
             collectTimer += delta;
             let progress = Math.floor((collectTimer / collectDuration) * 100);
-            timerText.setText('Recolectando: ' + progress + '%');
+            timerText.setText('Recolectando huevo: ' + progress + '% (Muévete para cancelar)');
 
             if (Phaser.Math.Distance.Between(player.x, player.y, collectingCoin.x, collectingCoin.y) > 55) {
                 collectingCoin = null;
@@ -574,12 +617,13 @@ function drawMinimap() {
     let mapH = 140;
 
     scene.minimapContainer = scene.add.group();
+    scene.minimapContainer.setDepth(5000);
 
-    let bg = scene.add.rectangle(mapX + mapW/2, mapY + mapH/2, mapW, mapH, 0x000000, 0.8)
-        .setStrokeStyle(2, 0x00ff41);
+    let bg = scene.add.rectangle(mapX + mapW/2, mapY + mapH/2, mapW, mapH, 0x1a0508, 0.9)
+        .setStrokeStyle(2, 0xff4d79);
     scene.minimapContainer.add(bg);
 
-    let label = scene.add.text(mapX + 8, mapY + 6, 'RADAR PLANETARIO', { fontSize: '9px', fill: '#00ff41', fontFamily: 'Courier' });
+    let label = scene.add.text(mapX + 8, mapY + 6, 'RADAR PLANETARIO', { fontSize: '9px', fill: '#ff4d79', fontFamily: 'Courier' });
     scene.minimapContainer.add(label);
 
     function scaleX(x) { return mapX + Phaser.Math.Clamp((x / 800) * mapW, 2, mapW - 2); }
@@ -587,7 +631,7 @@ function drawMinimap() {
 
     coins.getChildren().forEach(coin => {
         if (coin.active) {
-            let dot = scene.add.rectangle(scaleX(coin.x), scaleY(coin.y), 2, 2, 0xff0055);
+            let dot = scene.add.rectangle(scaleX(coin.x), scaleY(coin.y), 2, 2, 0xff1a40);
             scene.minimapContainer.add(dot);
         }
     });
