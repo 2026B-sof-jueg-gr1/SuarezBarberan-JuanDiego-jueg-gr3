@@ -94,8 +94,6 @@ function create() {
     this.physics.add.overlap(player, enemies, hitEnemy);
 
     cursors = this.input.keyboard.createCursorKeys();
-    
-    // Configurar la tecla ESPACIO para la pausa
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 }
 
@@ -123,12 +121,13 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
-    const enemyAscii = 
-        "#####\n" +
-        "#X#X#\n" +
-        "#####";
+    // Alienígena araña inicial (Frame 0 de patas)
+    const spiderAscii = 
+        " \\\\// \n" +
+        " (o.o) \n" +
+        " // \\\\ ";
 
-    let enemy = scene.add.text(x, y, enemyAscii, {
+    let enemy = scene.add.text(x, y, spiderAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
         fill: '#ffaa00'
@@ -136,6 +135,11 @@ function spawnEnemy() {
     
     scene.physics.add.existing(enemy);
     enemy.body.setSize(35, 35);
+    
+    // Variables para controlar la animación de caminata de las patas
+    enemy.setData('animTimer', 0);
+    enemy.setData('frame', 0);
+    
     enemies.add(enemy);
 }
 
@@ -194,7 +198,6 @@ function update() {
         }
     }
 
-    // Si está pausado, detenemos la lógica de movimiento y enemigos
     if (isPaused) {
         player.body.setVelocity(0);
         return;
@@ -207,5 +210,25 @@ function update() {
     else if (cursors.down.isDown) player.body.setVelocityY(300);
 
     const speed = 90 + score * 5;
-    enemies.getChildren().forEach(e => scene.physics.moveToObject(e, player, speed));
+
+    // Persecución y animación de caminata de las patas de araña
+    enemies.getChildren().forEach(e => {
+        scene.physics.moveToObject(e, player, speed);
+
+        // Alternar los caracteres de las patas cada 15 fotogramas para simular paso
+        let timer = e.getData('animTimer') + 1;
+        if (timer > 15) {
+            let currentFrame = e.getData('frame');
+            if (currentFrame === 0) {
+                e.setText(" //\\\\\n (o.o) \n \\\\ //");
+                e.setData('frame', 1);
+            } else {
+                e.setText(" \\\\// \n (o.o) \n // \\\\");
+                e.setData('frame', 0);
+            }
+            e.setData('animTimer', 0);
+        } else {
+            e.setData('animTimer', timer);
+        }
+    });
 }
