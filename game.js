@@ -2,15 +2,17 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#05050a', // Fondo espacial oscuro tipo terminal
+    backgroundColor: '#05050a',
     physics: { default: 'arcade' },
     scene: { create, update }
 };
 
 new Phaser.Game(config);
 
-let scene, player, cursors, coins, enemies;
+let scene, player, cursors, coins, enemies, spaceKey;
 let scoreText, livesText, score, lives, invulnerable;
+let isPaused = false;
+let pauseText;
 
 function create() {
     scene = this;
@@ -18,6 +20,7 @@ function create() {
     score = 0;
     lives = 3;
     invulnerable = false;
+    isPaused = false;
 
     // 1. GENERAR EL TERRENO DEL PLANETA (0s como suelo plomo y 1s como hierbas altas)
     const cols = 55;
@@ -25,21 +28,19 @@ function create() {
     let groundGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
     let grassGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
 
-    // Llenar la base con ceros ('0') representando el suelo firme
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             if (r >= rows - 5) {
-                groundGrid[r][c] = "0"; // Suelo base abajo
+                groundGrid[r][c] = "0";
             } else if (Math.random() < 0.12) {
-                groundGrid[r][c] = "0"; // Rocas o parches de suelo salpicados
+                groundGrid[r][c] = "0";
             }
         }
     }
 
-    // Crear hierbas ('1') mucho más largas y de diferentes tamaños
     for (let c = 0; c < cols; c += 2) {
         if (Math.random() < 0.75) {
-            let height = Phaser.Math.Between(3, 9); // Alturas variables para las hierbas
+            let height = Phaser.Math.Between(3, 9);
             let startRow = rows - 5 - height + Phaser.Math.Between(0, 2);
             for (let h = 0; h < height; h++) {
                 let currentRow = startRow + h;
@@ -50,22 +51,19 @@ function create() {
         }
     }
 
-    // Convertir las matrices a cadenas de texto
     let groundText = groundGrid.map(row => row.join("")).join("\n");
     let grassText = grassGrid.map(row => row.join("")).join("\n");
 
-    // Renderizar el suelo plomo ('0')
     this.add.text(40, 120, groundText, {
         fontFamily: 'Courier, monospace',
         fontSize: '15px',
-        fill: '#7f8c8d' // Gris / Plomo elegante
+        fill: '#7f8c8d'
     });
 
-    // Renderizar las hierbas verdes oscuras y altas ('1') justo encima
     this.add.text(40, 120, grassText, {
         fontFamily: 'Courier, monospace',
         fontSize: '15px',
-        fill: '#1e8449' // Verde oscuro / bosque profundo
+        fill: '#1e8449'
     });
 
     // 2. JUGADOR (Figura ASCII humana táctica)
@@ -96,13 +94,15 @@ function create() {
     this.physics.add.overlap(player, enemies, hitEnemy);
 
     cursors = this.input.keyboard.createCursorKeys();
+    
+    // Configurar la tecla ESPACIO para la pausa
+    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 }
 
 function spawnCoin() {
     const x = Phaser.Math.Between(50, 750);
     const y = Phaser.Math.Between(80, 550);
     
-    // Huevo alienígena orgánico en ASCII
     const eggAscii = 
         " *Oo* \n" +
         "o@@@O\n" +
@@ -123,7 +123,6 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
-    // Enemigo guardián en ASCII
     const enemyAscii = 
         "#####\n" +
         "#X#X#\n" +
@@ -141,6 +140,7 @@ function spawnEnemy() {
 }
 
 function collectCoin(p, coin) {
+    if (isPaused) return;
     coin.destroy();
     score++;
     scoreText.setText('Huevos Recolectados: ' + score);
@@ -150,7 +150,7 @@ function collectCoin(p, coin) {
 }
 
 function hitEnemy(p, enemy) {
-    if (invulnerable) return;
+    if (invulnerable || isPaused) return;
 
     lives--;
     livesText.setText('Salud del Traje: ' + lives);
@@ -177,6 +177,28 @@ function endGame() {
 
 function update() {
     if (lives <= 0) return;
+
+    // Control de pausa con la barra espaciadora
+    if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+        isPaused = !isPaused;
+        if (isPaused) {
+            scene.physics.pause();
+            pauseText = scene.add.text(400, 300, '- JUEGO PAUSADO -', {
+                fontSize: '36px',
+                fill: '#00ff41',
+                fontFamily: 'Courier'
+            }).setOrigin(0.5);
+        } else {
+            scene.physics.resume();
+            if (pauseText) pauseText.destroy();
+        }
+    }
+
+    // Si está pausado, detenemos la lógica de movimiento y enemigos
+    if (isPaused) {
+        player.body.setVelocity(0);
+        return;
+    }
 
     player.body.setVelocity(0);
     if (cursors.left.isDown) player.body.setVelocityX(-300);
