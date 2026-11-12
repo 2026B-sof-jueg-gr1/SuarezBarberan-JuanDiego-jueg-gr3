@@ -2,7 +2,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#1a0508', // Fondo ambiental general con tinte rojo oscuro
+    backgroundColor: '#1a0508',
     physics: { default: 'arcade' },
     scene: { create, update }
 };
@@ -19,19 +19,20 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 400;
 
-// Variables de recolección y extracción
+// Variables de recolección y extracción corporativa
 let collectingCoin = null;
 let collectTimer = 0;
 let collectDuration = 10000;
 let extracting = false;
 let extractionTotalTimer = 10000;
-let extractionCountdownTimer = 5000;
+let extractionCountdownTimer = 5000; // Se ajustará según los huevos
 let extractionZone = null;
 let extractionShip = null;
 let extractionBeam = null;
 let extractionPoint = { x: 0, y: 0 };
 let extractingStartTime = 0;
 let extractionPhase = 0;
+let corporateHelpActive = false;
 
 function create() {
     scene = this;
@@ -48,15 +49,16 @@ function create() {
     extractionShip = null;
     extractionBeam = null;
     extractionPhase = 0;
+    corporateHelpActive = false;
     window.extractingStartTime = 0;
 
     landingX = Phaser.Math.Between(250, 550);
 
-    // FILTRO AMBIENTAL ROJIZO (Tipo luz de castillo renderizado por computadora)
+    // Filtro ambiental rojizo
     let ambientRedOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.12);
-    ambientRedOverlay.setDepth(9999); // Siempre por encima de todo dando atmósfera
+    ambientRedOverlay.setDepth(9999);
 
-    // GENERAR SUELO Y CÉSPED ROJO ROSADIZO PROCEDURAL
+    // Generar suelo y césped rojo rosadizo
     const cols = 55;
     const rows = 22;
     let groundGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
@@ -77,7 +79,7 @@ function create() {
             for (let h = 0; h < height; h++) {
                 let currentRow = startRow + h;
                 if (currentRow >= 0 && currentRow < rows) {
-                    grassGrid[currentRow][c] = "Y"; // Tallos de césped rojo rosadizo
+                    grassGrid[currentRow][c] = "Y";
                 }
             }
         }
@@ -86,14 +88,12 @@ function create() {
     let groundText = groundGrid.map(row => row.join("")).join("\n");
     let grassText = grassGrid.map(row => row.join("")).join("\n");
 
-    // Suelo base en tonos oscuros/rojizos
     scene.add.text(40, 120, groundText, {
         fontFamily: 'Courier, monospace',
         fontSize: '15px',
         fill: '#4a1525'
     }).setDepth(-2);
 
-    // Césped rojo rosadizo vibrante
     scene.add.text(40, 120, grassText, {
         fontFamily: 'Courier, monospace',
         fontSize: '15px',
@@ -104,12 +104,10 @@ function create() {
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
 
-    // 1. COLOCAR LOS HUEVOS ROJOS (Diferenciados por diseño hexagonal/brillante)
     for (let i = 0; i < 10; i++) {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. ARAÑAS AFUERA DEL MAPA
     for (let i = 0; i < 5; i++) {
         let side = Phaser.Math.Between(0, 3);
         let outX, outY;
@@ -123,7 +121,6 @@ function create() {
 
     enemies.getChildren().forEach(e => e.setData('active', false));
 
-    // 3. JUGADOR
     const playerAscii = 
         "  o  \n" +
         " [#] \n" +
@@ -140,7 +137,6 @@ function create() {
     player.setData('facing', 'right');
     player.setAlpha(0);
 
-    // 4. NAVE DE INICIO
     const shipAscii = 
         "   /===\\   \n" +
         "  [=====]  \n" +
@@ -204,7 +200,6 @@ function create() {
 }
 
 function spawnStaticCoin(x, y) {
-    // Huevo rojo con diseño claramente diferenciado (núcleo brillante y romboide)
     const redEggAscii = 
         "  /\\  \n" +
         " <##> \n" +
@@ -314,19 +309,39 @@ function triggerExtraction() {
     extractionPhase = 0;
     window.extractingStartTime = scene.time.now;
 
-    extractionPoint.x = Phaser.Math.Between(150, 650);
-    extractionPoint.y = Phaser.Math.Between(150, 450);
+    // EVALUACIÓN CORPORATIVA BASADA EN LOS HUEVOS RECOLECTADOS
+    if (score > 0) {
+        // EXTRACCIÓN VIP: Tienes huevos, la corporación te premia
+        extractionCountdownTimer = 7000; // Te esperan 7 segundos generosos
+        corporateHelpActive = true; // La nave te ayuda a disparar a los aliens
+        extractionText.setText('CENTRAL: ¡Buen trabajo! Extracción VIP en camino...');
+        
+        // Punto de extracción cercano al jugador
+        let offsetX = Phaser.Math.Between(-150, 150);
+        let offsetY = Phaser.Math.Between(-100, 100);
+        extractionPoint.x = Phaser.Math.Clamp(player.x + offsetX, 100, 700);
+        extractionPoint.y = Phaser.Math.Clamp(player.y + offsetY, 100, 500);
+    } else {
+        // CASTIGO CORPORATIVO: Cero huevos
+        extractionCountdownTimer = 3000; // Solo 3 miserables segundos para llegar
+        corporateHelpActive = false;
+        extractionText.setText('CENTRAL: ¿Cero huevos? ¿En serio? Resuélvelo tú.');
+        
+        // Punto de extracción en la esquina más lejana y jodida del mapa
+        extractionPoint.x = player.x < 400 ? 720 : 80;
+        extractionPoint.y = player.y < 300 ? 520 : 80;
+    }
 
     extractionZone = scene.add.text(extractionPoint.x, extractionPoint.y, '[ X ]', {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
-        fill: '#00ffff'
+        fill: score > 0 ? '#00ffff' : '#ff0055'
     }).setOrigin(0.5);
 
     scene.tweens.add({
         targets: extractionZone,
         alpha: 0.2,
-        duration: 500,
+        duration: 400,
         yoyo: true,
         repeat: -1
     });
@@ -350,11 +365,13 @@ function triggerExtraction() {
 
             extractionBeam = scene.add.rectangle(extractionPoint.x, extractionPoint.y - 60, 50, 120, 0x00ffff, 0.3).setOrigin(0.5, 0);
 
+            // VENTANA DE TIEMPO PARA LLEGAR (7s si trajiste huevos, 3s si viniste con las manos vacías)
             scene.time.delayedCall(extractionCountdownTimer, () => {
                 if (lives > 0 && extracting && extractionPhase === 1) {
                     let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
                     if (distance < 50) {
                         extractionPhase = 2;
+                        corporateHelpActive = false;
                         player.body.setVelocity(0);
 
                         scene.tweens.add({
@@ -367,8 +384,9 @@ function triggerExtraction() {
                             }
                         });
                     } else {
-                        extractionText.setText('[E] EXTRACCIÓN FALLIDA (NO LLEGASTE A TIEMPO)');
+                        extractionText.setText('CENTRAL: Abandono de personal detectado. Adiós.');
                         extracting = false;
+                        corporateHelpActive = false;
                         if (extractionShip) extractionShip.destroy();
                         if (extractionBeam) extractionBeam.destroy();
                     }
@@ -503,10 +521,28 @@ function update(time, delta) {
         } else if (extractionPhase === 1) {
             let elapsedArrival = elapsedTime - extractionTotalTimer;
             let remainingArrival = Math.max(0, Math.ceil((extractionCountdownTimer - elapsedArrival) / 1000));
-            extractionText.setText('¡NAVE EN ZONA! SÚBETE AL [ X ]: ' + remainingArrival + 's');
+            let zoneLabel = score > 0 ? 'SÚBETE AL [ X ] (VIP): ' : 'SÚBETE AL [ X ] (ZONA HOSTIL): ';
+            extractionText.setText(zoneLabel + remainingArrival + 's');
         }
     } else {
         extractionText.setText('[E] Solicitar Extracción');
+    }
+
+    // Si la ayuda corporativa está activa (porque trajiste huevos), la nave dispara láseres automáticos de apoyo a los aliens cercanos
+    if (corporateHelpActive && extractionShip) {
+        enemies.getChildren().forEach(e => {
+            if (e.active && Phaser.Math.Distance.Between(extractionShip.x, extractionShip.y, e.x, e.y) < 250) {
+                if (Math.random() < 0.1) {
+                    let supportLaser = scene.add.text(extractionShip.x, extractionShip.y, 'v', { fontFamily: 'Courier', fontSize: '14px', fill: '#00ffff' });
+                    scene.physics.add.existing(supportLaser);
+                    scene.physics.moveToObject(supportLaser, e, 600);
+                    scene.physics.add.overlap(supportLaser, e, (laser, enemy) => {
+                        laser.destroy();
+                        enemy.destroy();
+                    });
+                }
+            }
+        });
     }
 
     if (extractionPhase === 2) {
@@ -637,7 +673,7 @@ function drawMinimap() {
     });
 
     if (extracting && extractionZone) {
-        let exDot = scene.add.rectangle(scaleX(extractionPoint.x), scaleY(extractionPoint.y), 4, 4, 0x00ffff);
+        let exDot = scene.add.rectangle(scaleX(extractionPoint.x), scaleY(extractionPoint.y), 4, 4, score > 0 ? 0x00ffff : 0xff0055);
         scene.minimapContainer.add(exDot);
     }
 
