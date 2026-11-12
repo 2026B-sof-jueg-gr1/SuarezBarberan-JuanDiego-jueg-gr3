@@ -2,7 +2,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#1e1e2e',
+    backgroundColor: '#0a0a0f', // Fondo negro espacial / ciberpunk
     physics: { default: 'arcade' },
     scene: { create, update }
 };
@@ -15,12 +15,19 @@ let scoreText, livesText, score, lives, invulnerable;
 function makeTextures(s) {
     if (s.textures.exists('player')) return;
     const g = s.add.graphics();
-    g.fillStyle(0x4cc9f0).fillRect(0, 0, 32, 32);
+    
+    // Jugador: El Mercenario (Nave/Traje táctico)
+    g.fillStyle(0x00ff41).fillRect(0, 0, 32, 32);
     g.generateTexture('player', 32, 32); g.clear();
-    g.fillStyle(0xffd60a).fillCircle(10, 10, 10);
+    
+    // Moneda: Huevo Alienígena (Brillo estelar)
+    g.fillStyle(0xff0055).fillCircle(10, 10, 10);
     g.generateTexture('coin', 20, 20); g.clear();
-    g.fillStyle(0xef476f).fillRect(0, 0, 28, 28);
+    
+    // Enemigo: Criatura Guardiana Alienígena
+    g.fillStyle(0xffaa00).fillRect(0, 0, 28, 28);
     g.generateTexture('enemy', 28, 28);
+    
     g.destroy();
 }
 
@@ -41,8 +48,9 @@ function create() {
     spawnCoin();
     spawnEnemy();
 
-    scoreText = this.add.text(16, 16, 'Puntos: 0', { fontSize: '24px', fill: '#fff' });
-    livesText = this.add.text(16, 48, 'Vidas: 3', { fontSize: '24px', fill: '#ef476f' });
+    // Textos de la Interfaz (HUD) con temática espacial
+    scoreText = this.add.text(16, 16, 'Huevos Recolectados: 0', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
+    livesText = this.add.text(16, 48, 'Salud del Traje: 3', { fontSize: '20px', fill: '#ff0055', fontFamily: 'Courier' });
 
     this.physics.add.overlap(player, coins, collectCoin);
     this.physics.add.overlap(player, enemies, hitEnemy);
@@ -51,25 +59,24 @@ function create() {
 }
 
 function spawnCoin() {
-    const x = Phaser.Math.Between(30, 770);
-    const y = Phaser.Math.Between(30, 570);
+    const x = Phaser.Math.Between(50, 750);
+    const y = Phaser.Math.Between(80, 550);
     coins.create(x, y, 'coin');
 }
 
 function spawnEnemy() {
-    // Aparece en un borde lejos del jugador
-    const x = Math.random() < 0.5 ? 20 : 780;
-    const y = Phaser.Math.Between(20, 580);
+    const x = Math.random() < 0.5 ? 30 : 770;
+    const y = Phaser.Math.Between(50, 550);
     enemies.create(x, y, 'enemy');
 }
 
 function collectCoin(p, coin) {
     coin.destroy();
     score++;
-    scoreText.setText('Puntos: ' + score);
+    scoreText.setText('Huevos Recolectados: ' + score);
     spawnCoin();
 
-    // Cada 5 monedas aparece un enemigo más
+    // Cada 5 huevos recolectados, se activa otra criatura guardiana
     if (score % 5 === 0) spawnEnemy();
 }
 
@@ -77,13 +84,13 @@ function hitEnemy(p, enemy) {
     if (invulnerable) return;
 
     lives--;
-    livesText.setText('Vidas: ' + lives);
+    livesText.setText('Salud del Traje: ' + lives);
     enemy.destroy();
     spawnEnemy();
 
     if (lives <= 0) return endGame();
 
-    // 1.5 s de invulnerabilidad con parpadeo
+    // 1.5 segundos de invulnerabilidad con parpadeo táctico
     invulnerable = true;
     scene.tweens.add({ targets: player, alpha: 0.3, duration: 100, yoyo: true, repeat: 7 });
     scene.time.delayedCall(1500, () => {
@@ -95,9 +102,9 @@ function hitEnemy(p, enemy) {
 function endGame() {
     scene.physics.pause();
     player.setTint(0xff0000);
-    scene.add.text(400, 280, 'GAME OVER', { fontSize: '64px', fill: '#fff' }).setOrigin(0.5);
-    scene.add.text(400, 340, 'Puntos: ' + score + '  -  Espacio para reiniciar',
-        { fontSize: '24px', fill: '#ccc' }).setOrigin(0.5);
+    scene.add.text(400, 260, 'MISIÓN FALLIDA', { fontSize: '54px', fill: '#ff0055', fontFamily: 'Courier' }).setOrigin(0.5);
+    scene.add.text(400, 330, 'Huevos robados: ' + score + '  -  Presiona ESPACIO para reintentar',
+        { fontSize: '20px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5);
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
@@ -110,7 +117,7 @@ function update() {
     if (cursors.up.isDown) player.setVelocityY(-300);
     else if (cursors.down.isDown) player.setVelocityY(300);
 
-    // Los enemigos te persiguen, más rápido mientras más puntos tengas
-    const speed = 80 + score * 4;
+    // Las criaturas guardianas persiguen al mercenario; la velocidad escala con los huevos obtenidos
+    const speed = 90 + score * 5;
     enemies.getChildren().forEach(e => scene.physics.moveToObject(e, player, speed));
 }
