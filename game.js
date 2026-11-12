@@ -15,6 +15,7 @@ let scoreText, livesText, score = 0, lives = 3, invulnerable = false;
 let isPaused = false, pauseElements = [];
 let lastFired = 0;
 let gameStarted = false;
+let introTween1, introTween2, introTween3; // Referencias para pausar los tweens de la intro
 
 function create() {
     scene = this;
@@ -25,7 +26,6 @@ function create() {
     isPaused = false;
     gameStarted = false;
 
-    // Grupos de juego
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
@@ -74,7 +74,8 @@ function create() {
 
     beam = this.add.rectangle(400, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
 
-    scene.tweens.add({
+    // Animaciones de entrada guardadas para poder pausarlas
+    introTween1 = scene.tweens.add({
         targets: ship,
         y: 100,
         duration: 2000,
@@ -83,7 +84,7 @@ function create() {
             player.setPosition(390, 120);
             player.setAlpha(1);
 
-            scene.tweens.add({
+            introTween2 = scene.tweens.add({
                 targets: player,
                 y: 350,
                 duration: 1500,
@@ -91,7 +92,7 @@ function create() {
                 onComplete: () => {
                     beam.destroy();
                     
-                    scene.tweens.add({
+                    introTween3 = scene.tweens.add({
                         targets: ship,
                         y: -100,
                         x: 900,
@@ -137,10 +138,11 @@ function spawnStaticCoin(x, y) {
 }
 
 function spawnEnemy(x, y) {
+    // Araña alienígena real con múltiples patas
     const spiderAscii = 
-        " \\\\// \n" +
-        " (o.o) \n" +
-        " // \\\\ ";
+        " /\\/\\/\\ \n" +
+        " (o.o)  \n" +
+        " / /\\ \\ ";
 
     let enemy = scene.add.text(x, y, spiderAscii, {
         fontFamily: 'Courier, monospace',
@@ -223,16 +225,62 @@ function destroyEnemy(bullet, enemy) {
 
 function triggeredVictory() {
     scene.physics.pause();
-    scene.add.text(400, 260, '¡MISIÓN CUMPLIDA!', { fontSize: '48px', fill: '#00ff41', fontFamily: 'Courier' }).setOrigin(0.5);
-    scene.add.text(400, 330, 'Has recolectado todos los huevos del sector.',
-        { fontSize: '18px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5);
+    let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
+
+    // Arte ASCII en bloque para MISIÓN CUMPLIDA
+    const victoryArt = 
+        "  __  __ ___ ____ ___ ___  _   _    ____ _   _ __  __ ___  _     ____    _    \n" +
+        " |  \\/  |_ _/ ___|_ _/ _ \\| \\ | |  / ___| | | |  \\/  | _ \\| |   |  _ \\  / \\   \n" +
+        " | |\\/| || |\\___ \\| | | | |  \\| | | |   | | | | |\\/| | |_) | |   | | | |/ _ \\  \n" +
+        " | |  | || | ___) | | |_| | |\\  | | |___| |_| | |  | |  __/| |___| |_| / ___ \\ \n" +
+        " |_|  |_|___|____/___\\___/|_| \\_|  \\____|\\___/|_|  |_|_|   |_____|____/_/   \\_\\";
+
+    scene.add.text(400, 260, victoryArt, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '10px',
+        fill: '#00ff41',
+        align: 'center'
+    }).setOrigin(0.5);
+
+    scene.add.text(400, 350, 'Has recolectado todos los huevos del sector.', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '16px',
+        fill: '#ffffff'
+    }).setOrigin(0.5);
 }
 
 function endGame() {
     scene.physics.pause();
-    scene.add.text(400, 260, 'MISIÓN FALLIDA', { fontSize: '54px', fill: '#ff0055', fontFamily: 'Courier' }).setOrigin(0.5);
-    scene.add.text(400, 330, 'Presiona ESPACIO para reintentar',
-        { fontSize: '20px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5);
+    let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
+
+    // Arte ASCII en bloque para MISIÓN FALLIDA
+    const defeatArt = 
+        "  __  __ ___ ____ ___ ___  _   _    💾  ___ _    _     ___ ____    _    \n" +
+        " |  \\/  |_ _/ ___|_ _/ _ \\| \\ | |   |  |_ _| |  | |   |_ _|  _ \\  / \\   \n" +
+        " | |\\/| || |\\___ \\| | | | |  \\| |   | | | || |  | |    | || | | |/ _ \\  \n" +
+        " | |  | || | ___) | | |_| | |\\  |   | | | || |__| |___ | || |_| / ___ \\ \n" +
+        " |_|  |_|___|____/___\\___/|_| \\_|   |_||___|_____|_____|___|____/_/   \\_\\";
+
+    // Versión limpia en texto ASCII puro para derrota
+    const cleanDefeat = 
+        " __  __ ___ ____ ___ ___  _   _      ___ _    _     ___ ____    _    \n" +
+        "|  \\/  |_ _/ ___|_ _/ _ \\| \\ | |    |  _| |  | |   |_ _|  _ \\  / \\   \n" +
+        "| |\\/| || |\\___ \\| | | | |  \\| |    | |_ | |  | |    | || | | |/ _ \\  \n" +
+        "| |  | || | ___) | | |_| | |\\  |    |  _|| |__| |___ | || |_| / ___ \\ \n" +
+        "|_|  |_|___|____/___\\___/|_| \\_|    |_|  |_____|_____|___|____/_/   \\_\\";
+
+    scene.add.text(400, 260, cleanDefeat, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '12px',
+        fill: '#ff0055',
+        align: 'center'
+    }).setOrigin(0.5);
+
+    scene.add.text(400, 350, 'Presiona ESPACIO para reintentar', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '18px',
+        fill: '#ffffff'
+    }).setOrigin(0.5);
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
@@ -243,20 +291,31 @@ function update() {
         isPaused = !isPaused;
         if (isPaused) {
             scene.physics.pause();
+            // Pausar también los tweens de la cinemática de entrada si está ocurriendo
+            if (introTween1) introTween1.pause();
+            if (introTween2) introTween2.pause();
+            if (introTween3) introTween3.pause();
 
             let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75);
             pauseElements.push(bgOverlay);
 
-            // ¡PAUSA limpio y directo con tipografía retro de terminal!
-            let pauseTitle = scene.add.text(400, 250, 'PAUSA', {
-                fontFamily: 'Courier, monospace',
-                fontSize: '48px',
-                fontStyle: 'bold',
-                fill: '#00ff41'
-            }).setOrigin(0.5);
-            pauseElements.push(pauseTitle);
+            // Arte ASCII en bloque exacto para "PAUSA"
+            const pauseArt = 
+                "  ____   _   _ ____   ____      _    \n" +
+                " |  _ \\ / \\ | / ___| / ___|    / \\   \n" +
+                " | |_) / _ \\| \\___ \\ \\___ \\   / _ \\  \n" +
+                " |  __/ ___ \\ |___) | ___) | / ___ \\ \n" +
+                " |_| /_/   \\_\\____/ |____/ /_/   \\_\\";
 
-            let subText = scene.add.text(400, 340, '- PRESIONA ESPACIO PARA CONTINUAR -', {
+            let asciiTitle = scene.add.text(400, 250, pauseArt, {
+                fontFamily: 'Courier, monospace',
+                fontSize: '16px',
+                fill: '#00ff41',
+                align: 'center'
+            }).setOrigin(0.5);
+            pauseElements.push(asciiTitle);
+
+            let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
                 fontFamily: 'Courier, monospace',
                 fontSize: '18px',
                 fill: '#ffffff'
@@ -265,14 +324,27 @@ function update() {
 
         } else {
             scene.physics.resume();
+            // Reanudar los tweens de la intro si seguían activos
+            if (introTween1) introTween1.resume();
+            if (introTween2) introTween2.resume();
+            if (introTween3) introTween3.resume();
+
             pauseElements.forEach(element => element.destroy());
             pauseElements = [];
         }
     }
 
     if (isPaused || !gameStarted) {
-        if (player) player.body.setVelocity(0);
-        return;
+        if (player && !isPaused) {
+            // Si no está pausado pero está en la intro, dejamos que actúe el tween
+        } else if (player) {
+            player.body.setVelocity(0);
+        }
+        if (isPaused) return;
+        if (!gameStarted) {
+            // Durante la intro dejamos correr solo los tweens
+            return;
+        }
     }
 
     player.body.setVelocity(0);
@@ -311,10 +383,11 @@ function update() {
         if (timer > 15) {
             let currentFrame = e.getData('frame');
             if (currentFrame === 0) {
-                e.setText(" //\\\\\n (o.o) \n \\\\ //");
+                // Animación de caminata de las patas de la araña
+                e.setText(" \\/\\/\\/ \n (o.o)  \n \\ \\/ / ");
                 e.setData('frame', 1);
             } else {
-                e.setText(" \\\\// \n (o.o) \n // \\\\");
+                e.setText(" /\\/\\/\\ \n (o.o)  \n / /\\ \\ ");
                 e.setData('frame', 0);
             }
             e.setData('animTimer', 0);
