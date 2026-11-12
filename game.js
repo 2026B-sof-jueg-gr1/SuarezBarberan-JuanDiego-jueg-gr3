@@ -9,10 +9,11 @@ const config = {
 
 new Phaser.Game(config);
 
-let scene, player, cursors, coins, enemies, spaceKey;
-let scoreText, livesText, score, lives, invulnerable;
-let isPaused = false;
-let pauseElements = [];
+let scene, player, cursors, spaceKey, attackKey;
+let coins, enemies, bullets;
+let scoreText, livesText, score = 0, lives = 3, invulnerable = false;
+let isPaused = false, pauseElements = [];
+let lastFired = 0;
 
 function create() {
     scene = this;
@@ -80,27 +81,37 @@ function create() {
     this.physics.add.existing(player);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(40, 50);
+    player.setData('facing', 'right'); // Dirección inicial para disparar
 
+    // Grupos de juego
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
+    bullets = this.physics.add.group();
 
-    spawnCoin();
-    spawnEnemy();
+    // 3. COLOCAR LOS HUEVOS YA PRESENTES EN EL MAPA (10 huevos repartidos)
+    for (let i = 0; i < 10; i++) {
+        spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(150, 500));
+    }
 
-    scoreText = this.add.text(16, 16, 'Huevos Recolectados: 0', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
+    // Colocar algunas arañas iniciales acechando en el mapa
+    for (let i = 0; i < 3; i++) {
+        spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(150, 500));
+    }
+
+    scoreText = this.add.text(16, 16, 'Huevos Restantes: 10', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
     livesText = this.add.text(16, 48, 'Salud del Traje: 3', { fontSize: '20px', fill: '#ff0055', fontFamily: 'Courier' });
 
+    // Colisiones y overlaps
     this.physics.add.overlap(player, coins, collectCoin);
     this.physics.add.overlap(player, enemies, hitEnemy);
+    this.physics.add.overlap(bullets, enemies, destroyEnemy);
 
     cursors = this.input.keyboard.createCursorKeys();
-    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); // Pausa
+    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);    // Tecla F para disparar láser/ataque
 }
 
-function spawnCoin() {
-    const x = Phaser.Math.Between(50, 750);
-    const y = Phaser.Math.Between(100, 530);
-    
+function spawnStaticCoin(x, y) {
     const eggAscii = 
         " *Oo* \n" +
         "o@@@O\n" +
@@ -117,10 +128,7 @@ function spawnCoin() {
     coins.add(coin);
 }
 
-function spawnEnemy() {
-    const x = Math.random() < 0.5 ? 30 : 770;
-    const y = Phaser.Math.Between(100, 530);
-    
+function spawnEnemy(x, y) {
     const spiderAscii = 
         " \\\\// \n" +
         " (o.o) \n" +
@@ -144,10 +152,12 @@ function collectCoin(p, coin) {
     if (isPaused) return;
     coin.destroy();
     score++;
-    scoreText.setText('Huevos Recolectados: ' + score);
-    spawnCoin();
+    let remaining = coins.countActive(true);
+    scoreText.setText('Huevos Restantes: ' + remaining);
 
-    if (score % 5 === 0) spawnEnemy();
+    if (remaining === 0) {
+        triggeredVictory();
+    }
 }
 
 function hitEnemy(p, enemy) {
@@ -156,7 +166,7 @@ function hitEnemy(p, enemy) {
     lives--;
     livesText.setText('Salud del Traje: ' + lives);
     enemy.destroy();
-    spawnEnemy();
+    spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(150, 500));
 
     if (lives <= 0) return endGame();
 
@@ -168,10 +178,48 @@ function hitEnemy(p, enemy) {
     });
 }
 
+// Mecánica para que el mercenario elimine a los extraterrestres con la tecla F
+function shootBullet() {
+    if (scene.time.now < lastFired) return;
+
+    let bullet = scene.add.text(player.x + 15, player.y + 15, '---', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '16px',
+        fill: '#00ff41'
+    });
+    scene.physics.add.existing(bullet);
+    
+    let facing = player.getData('facing');
+    let speedX = 0;
+    if (facing === 'left') speedX = -500;
+    else if (facing === 'right') speedX = 500;
+
+    bullet.body.setVelocityX(speedX);
+    bullets.add(bullet);
+
+    lastFired = scene.time.now + 300; // Cadencia de disparo
+}
+
+function destroyEnemy(bullet, enemy) {
+    bullet.destroy();
+    enemy.destroy();
+    // Reaparece una nueva araña en otro punto tras un breve retardo
+    scene.time.delayedCall(2000, () => {
+        if (lives > 0) spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(150, 500));
+    });
+}
+
+function triggeredVictory() {
+    scene.physics.pause();
+    scene.add.text(400, 260, '¡MISIÓN CUMPLIDA!', { fontSize: '48px', fill: '#00ff41', fontFamily: 'Courier' }).setOrigin(0.5);
+    scene.add.text(400, 330, 'Has recolectado todos los huevos del sector.',
+        { fontSize: '18px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5);
+}
+
 function endGame() {
     scene.physics.pause();
     scene.add.text(400, 260, 'MISIÓN FALLIDA', { fontSize: '54px', fill: '#ff0055', fontFamily: 'Courier' }).setOrigin(0.5);
-    scene.add.text(400, 330, 'Huevos robados: ' + score + '  -  Presiona ESPACIO para reintentar',
+    scene.add.text(400, 330, 'Presiona ESPACIO para reintentar',
         { fontSize: '20px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5);
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
@@ -190,7 +238,7 @@ function update() {
             const pauseArt = 
                 " ██████╗   █████╗  ██╗   ██╗ ███████╗ ███████╗ ██████╗ \n" +
                 " ██╔══██╗ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔════╝ ██╔══██╗\n" +
-                " ██████╔╝ ███████║ ██║   ██║ ███████╗ ███████║ ██║  ██║\n" +
+                " ██████╔╝ ███████║ ██║   ██║ ███████╗ ███████╗ ██║  ██║\n" +
                 " ██╔═══╝  ██╔══██║ ██║   ██║ ╚════██║ ╚════██║ ██║  ██║\n" +
                 " ██║      ██║  ██║ ╚██████╔╝ ███████║ ███████║ ██████╔╝";
 
@@ -222,26 +270,31 @@ function update() {
     }
 
     player.body.setVelocity(0);
-    if (cursors.left.isDown) player.body.setVelocityX(-300);
-    else if (cursors.right.isDown) player.setVelocityX(300);
+    if (cursors.left.isDown) {
+        player.body.setVelocityX(-300);
+        player.setData('facing', 'left');
+    } else if (cursors.right.isDown) {
+        player.body.setVelocityX(300);
+        player.setData('facing', 'right');
+    }
+
     if (cursors.up.isDown) player.body.setVelocityY(-300);
     else if (cursors.down.isDown) player.body.setVelocityY(300);
 
-    const speed = 90 + score * 5;
+    // Disparar láser con la tecla F
+    if (Phaser.Input.Keyboard.JustDown(attackKey)) {
+        shootBullet();
+    }
 
-    // EFECTO DE PROFUNDIDAD 3D (Y-SORTING Y ESCALADO SEGÚN LA POSICIÓN VERTICAL)
-    
-    // 1. Ordenar profundidad del jugador según su posición Y
+    const speed = 100;
+
+    // EFECTO DE PROFUNDIDAD 3D Y ANIMACIÓN DE ARAÑAS
     player.setDepth(player.y);
 
-    // 2. Actualizar enemigos y aplicar escala de profundidad 3D
     enemies.getChildren().forEach(e => {
         scene.physics.moveToObject(e, player, speed);
-
-        // Profundidad en el eje Y (quién pasa por delante de quién)
         e.setDepth(e.y);
 
-        // Escala simulada en 3D: más abajo en la pantalla = más cerca (más grande), más arriba = más lejos (más pequeño)
         let depthScale = Phaser.Math.Clamp(e.y / 450, 0.7, 1.3);
         e.setScale(depthScale);
 
@@ -261,7 +314,6 @@ function update() {
         }
     });
 
-    // 3. Aplicar profundidad también a los huevos recolectables
     coins.getChildren().forEach(coin => {
         coin.setDepth(coin.y);
         let coinScale = Phaser.Math.Clamp(coin.y / 450, 0.8, 1.2);
