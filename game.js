@@ -12,7 +12,7 @@ new Phaser.Game(config);
 let scene, player, cursors, coins, enemies, spaceKey;
 let scoreText, livesText, score, lives, invulnerable;
 let isPaused = false;
-let pauseElements = []; // Grupo para guardar los elementos visuales de la pausa
+let pauseElements = [];
 
 function create() {
     scene = this;
@@ -99,7 +99,7 @@ function create() {
 
 function spawnCoin() {
     const x = Phaser.Math.Between(50, 750);
-    const y = Phaser.Math.Between(80, 550);
+    const y = Phaser.Math.Between(100, 530);
     
     const eggAscii = 
         " *Oo* \n" +
@@ -119,7 +119,7 @@ function spawnCoin() {
 
 function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
-    const y = Phaser.Math.Between(50, 550);
+    const y = Phaser.Math.Between(100, 530);
     
     const spiderAscii = 
         " \\\\// \n" +
@@ -179,33 +179,29 @@ function endGame() {
 function update() {
     if (lives <= 0) return;
 
-    // Control de pausa con la barra espaciadora
     if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
         isPaused = !isPaused;
         if (isPaused) {
             scene.physics.pause();
 
-            // 1. Rectángulo semitransparente de fondo sobre todo el juego
             let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75);
             pauseElements.push(bgOverlay);
 
-            // 2. Título de PAUSA hecho con arte ASCII grande y detallado
             const pauseArt = 
-                " ██████╗   █████╗  ██╗   ██╗ ███████╗ ███████╗  █████╗ \n" +
+                " ██████╗   █████╗  ██╗   ██╗ ███████╗ ███████╗ ██████╗ \n" +
                 " ██╔══██╗ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔════╝ ██╔══██╗\n" +
-                " ██████╔╝ ███████║ ██║   ██║ ███████> ███████> ███████║\n" +
-                " ██╔═══╝  ██╔══██║ ██║   ██║ ╚════██║ ╚════██║ ██╔══██║\n" +
-                " ██║      ██║  ██║ ╚██████╔╝ ███████║ ███████║ ██║  ██║";
+                " ██████╔╝ ███████║ ██║   ██║ ███████╗ ███████║ ██║  ██║\n" +
+                " ██╔═══╝  ██╔══██║ ██║   ██║ ╚════██║ ╚════██║ ██║  ██║\n" +
+                " ██║      ██║  ██║ ╚██████╔╝ ███████║ ███████║ ██████╔╝";
 
             let asciiTitle = scene.add.text(400, 250, pauseArt, {
                 fontFamily: 'Courier, monospace',
-                fontSize: '14px',
+                fontSize: '13px',
                 fill: '#00ff41',
                 align: 'center'
             }).setOrigin(0.5);
             pauseElements.push(asciiTitle);
 
-            // 3. Subtítulo indicando cómo reanudar
             let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
                 fontFamily: 'Courier, monospace',
                 fontSize: '18px',
@@ -215,7 +211,6 @@ function update() {
 
         } else {
             scene.physics.resume();
-            // Borrar todos los elementos visuales del menú de pausa al reanudar
             pauseElements.forEach(element => element.destroy());
             pauseElements = [];
         }
@@ -228,14 +223,27 @@ function update() {
 
     player.body.setVelocity(0);
     if (cursors.left.isDown) player.body.setVelocityX(-300);
-    else if (cursors.right.isDown) player.body.setVelocityX(300);
+    else if (cursors.right.isDown) player.setVelocityX(300);
     if (cursors.up.isDown) player.body.setVelocityY(-300);
     else if (cursors.down.isDown) player.body.setVelocityY(300);
 
     const speed = 90 + score * 5;
 
+    // EFECTO DE PROFUNDIDAD 3D (Y-SORTING Y ESCALADO SEGÚN LA POSICIÓN VERTICAL)
+    
+    // 1. Ordenar profundidad del jugador según su posición Y
+    player.setDepth(player.y);
+
+    // 2. Actualizar enemigos y aplicar escala de profundidad 3D
     enemies.getChildren().forEach(e => {
         scene.physics.moveToObject(e, player, speed);
+
+        // Profundidad en el eje Y (quién pasa por delante de quién)
+        e.setDepth(e.y);
+
+        // Escala simulada en 3D: más abajo en la pantalla = más cerca (más grande), más arriba = más lejos (más pequeño)
+        let depthScale = Phaser.Math.Clamp(e.y / 450, 0.7, 1.3);
+        e.setScale(depthScale);
 
         let timer = e.getData('animTimer') + 1;
         if (timer > 15) {
@@ -251,5 +259,12 @@ function update() {
         } else {
             e.setData('animTimer', timer);
         }
+    });
+
+    // 3. Aplicar profundidad también a los huevos recolectables
+    coins.getChildren().forEach(coin => {
+        coin.setDepth(coin.y);
+        let coinScale = Phaser.Math.Clamp(coin.y / 450, 0.8, 1.2);
+        coin.setScale(coinScale);
     });
 }
