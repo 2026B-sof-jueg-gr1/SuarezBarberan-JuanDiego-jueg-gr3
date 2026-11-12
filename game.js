@@ -19,15 +19,19 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 400;
 
-// Variables de recolección y extracción
+// Variables de recolección y extracción ajustadas
 let collectingCoin = null;
 let collectTimer = 0;
-let collectDuration = 10000; // 10 segundos exactos para tomar un huevo
+let collectDuration = 10000; // 10 segundos para tomar un huevo
 let extracting = false;
-let extractionTimer = 60000; // 60 segundos (1 minuto) para la llegada de la nave
+let extractionTotalTimer = 10000; // 10 segundos de espera inicial
+let extractionCountdownTimer = 5000; // 5 segundos para llegar a la nave
 let extractionZone = null;
+let extractionShip = null;
+let extractionBeam = null;
 let extractionPoint = { x: 0, y: 0 };
 let extractingStartTime = 0;
+let extractionPhase = 0; // 0: Esperando, 1: Nave en punto (5s restantes), 2: Subiendo
 
 function create() {
     scene = this;
@@ -41,6 +45,9 @@ function create() {
     collectingCoin = null;
     collectTimer = 0;
     extractionZone = null;
+    extractionShip = null;
+    extractionBeam = null;
+    extractionPhase = 0;
     window.extractingStartTime = 0;
 
     landingX = Phaser.Math.Between(250, 550);
@@ -54,7 +61,7 @@ function create() {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. ARAÑAS GENERADAS FUERA DEL MAPA (Planeta exterior)
+    // 2. ARAÑAS GENERADAS FUERA DEL MAPA
     for (let i = 0; i < 5; i++) {
         let side = Phaser.Math.Between(0, 3);
         let outX, outY;
@@ -85,7 +92,7 @@ function create() {
     player.setData('facing', 'right');
     player.setAlpha(0);
 
-    // 4. NAVE Y HAZ DE LUZ SCI-FI
+    // 4. NAVE DE INICIO
     const shipAscii = 
         "   /===\\   \n" +
         "  [=====]  \n" +
@@ -187,7 +194,7 @@ function spawnEnemy(x, y) {
 }
 
 function hitEnemy(p, enemy) {
-    if (invulnerable || isPaused || !gameStarted) return;
+    if (invulnerable || isPaused || !gameStarted || extractionPhase === 2) return;
 
     collectingCoin = null;
     collectTimer = 0;
@@ -213,7 +220,7 @@ function hitEnemy(p, enemy) {
 }
 
 function shootBullet() {
-    if (!gameStarted || scene.time.now < lastFired) return;
+    if (!gameStarted || scene.time.now < lastFired || extractionPhase === 2) return;
 
     collectingCoin = null;
     collectTimer = 0;
@@ -255,8 +262,10 @@ function destroyEnemy(bullet, enemy) {
 function triggerExtraction() {
     if (extracting || !gameStarted || isPaused) return;
     extracting = true;
+    extractionPhase = 0;
     window.extractingStartTime = scene.time.now;
 
+    // Generar punto de extracción aleatorio
     extractionPoint.x = Phaser.Math.Between(150, 650);
     extractionPoint.y = Phaser.Math.Between(150, 450);
 
@@ -274,16 +283,53 @@ function triggerExtraction() {
         repeat: -1
     });
 
-    scene.time.delayedCall(extractionTimer, () => {
-        if (lives > 0) {
-            let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
-            if (distance < 60) {
-                triggeredVictory();
-            } else {
-                extractionText.setText('[E] EXTRACCIÓN FALLIDA (FUERA DE ZONA)');
-                extracting = false;
-                if (extractionZone) extractionZone.destroy();
-            }
+    // A los 10 segundos, la nave llega y empieza la cuenta atrás de 5 segundos
+    scene.time.delayedCall(extractionTotalTimer, () => {
+        if (lives > 0 && extracting) {
+            extractionPhase = 1; // Fase de llegada de la nave
+            if (extractionZone) extractionZone.destroy();
+
+            // Dibujar la nave flotando en el punto de extracción
+            const shipAscii = 
+                "   /===\\   \n" +
+                "  [=====]  \n" +
+                "== O O O == ";
+
+            extractionShip = scene.add.text(extractionPoint.x, extractionPoint.y - 120, shipAscii, {
+                fontFamily: 'Courier, monospace',
+                fontSize: '16px',
+                fill: '#00ffff',
+                align: 'center'
+            }).setOrigin(0.5);
+
+            extractionBeam = scene.add.rectangle(extractionPoint.x, extractionPoint.y - 60, 50, 120, 0x00ffff, 0.3).setOrigin(0.5, 0);
+
+            // A los 5 segundos de espera flotando, evaluamos si el jugador está dentro
+            scene.time.delayedCall(extractionCountdownTimer, () => {
+                if (lives > 0 && extracting && extractionPhase === 1) {
+                    let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
+                    if (distance < 50) {
+                        // ¡Éxito! Iniciar animación de abducción/subida a la nave
+                        extractionPhase = 2;
+                        player.body.setVelocity(0);
+
+                        scene.tweens.add({
+                            targets: player,
+                            y: extractionPoint.y - 100,
+                            duration: 1500,
+                            ease: 'Power2',
+                            onComplete: () => {
+                                triggeredVictory();
+                            }
+                        });
+                    } else {
+                        extractionText.setText('[E] EXTRACCIÓN FALLIDA (NO LLEGASTE A TIEMPO)');
+                        extracting = false;
+                        if (extractionShip) extractionShip.destroy();
+                        if (extractionBeam) extractionBeam.destroy();
+                    }
+                }
+            });
         }
     });
 }
@@ -404,17 +450,29 @@ function update(time, delta) {
         triggerExtraction();
     }
 
-    // Actualizar la línea de extracción unificada con la cuenta atrás
+    // Actualizar la línea de extracción unificada
     if (extracting) {
-        let remainingTime = Math.max(0, Math.ceil((extractionTimer - (scene.time.now - window.extractingStartTime)) / 1000));
-        extractionText.setText('EXTRACCIÓN EN CAMINO: ' + remainingTime + 's (Ve al [ X ])');
+        let elapsedTime = scene.time.now - window.extractingStartTime;
+        if (extractionPhase === 0) {
+            let remainingInitial = Math.max(0, Math.ceil((extractionTotalTimer - elapsedTime) / 1000));
+            extractionText.setText('EXTRACCIÓN EN CAMINO: ' + remainingInitial + 's');
+        } else if (extractionPhase === 1) {
+            let elapsedArrival = elapsedTime - extractionTotalTimer;
+            let remainingArrival = Math.max(0, Math.ceil((extractionCountdownTimer - elapsedArrival) / 1000));
+            extractionText.setText('¡NAVE EN ZONA! SÚBETE AL [ X ]: ' + remainingArrival + 's');
+        }
     } else {
         extractionText.setText('[E] Solicitar Extracción');
     }
 
+    // Si está en fase 2 (subiendo a la nave), bloqueamos el movimiento normal
+    if (extractionPhase === 2) {
+        player.body.setVelocity(0);
+        return;
+    }
+
     player.body.setVelocity(0);
     
-    // Mecánica de recolección de 10 segundos con opción de cancelar
     if (collectingCoin) {
         if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown || Phaser.Input.Keyboard.JustDown(attackKey)) {
             collectingCoin = null;
@@ -423,7 +481,7 @@ function update(time, delta) {
         } else {
             collectTimer += delta;
             let progress = Math.floor((collectTimer / collectDuration) * 100);
-            timerText.setText('Recolectando huevo: ' + progress + '% (Muévete para cancelar)');
+            timerText.setText('Recolectando: ' + progress + '%');
 
             if (Phaser.Math.Distance.Between(player.x, player.y, collectingCoin.x, collectingCoin.y) > 55) {
                 collectingCoin = null;
@@ -465,7 +523,6 @@ function update(time, delta) {
         shootBullet();
     }
 
-    // VELOCIDAD CALCULADA: Tardan exactamente 12 segundos desde los bordes exteriores hasta el centro
     const speed = 45; 
     player.setDepth(player.y);
 
