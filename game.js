@@ -23,51 +23,7 @@ function create() {
     invulnerable = false;
     isPaused = false;
 
-    // 1. GENERAR EL TERRENO DEL PLANETA (0s como suelo plomo y 1s como hierbas altas)
-    const cols = 55;
-    const rows = 22;
-    let groundGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
-    let grassGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
-
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            if (r >= rows - 5) {
-                groundGrid[r][c] = "0";
-            } else if (Math.random() < 0.12) {
-                groundGrid[r][c] = "0";
-            }
-        }
-    }
-
-    for (let c = 0; c < cols; c += 2) {
-        if (Math.random() < 0.75) {
-            let height = Phaser.Math.Between(3, 9);
-            let startRow = rows - 5 - height + Phaser.Math.Between(0, 2);
-            for (let h = 0; h < height; h++) {
-                let currentRow = startRow + h;
-                if (currentRow >= 0 && currentRow < rows) {
-                    grassGrid[currentRow][c] = "1";
-                }
-            }
-        }
-    }
-
-    let groundText = groundGrid.map(row => row.join("")).join("\n");
-    let grassText = grassGrid.map(row => row.join("")).join("\n");
-
-    this.add.text(40, 120, groundText, {
-        fontFamily: 'Courier, monospace',
-        fontSize: '15px',
-        fill: '#7f8c8d'
-    });
-
-    this.add.text(40, 120, grassText, {
-        fontFamily: 'Courier, monospace',
-        fontSize: '15px',
-        fill: '#1e8449'
-    });
-
-    // 2. JUGADOR (Figura ASCII humana táctica)
+    // 1. JUGADOR (Figura ASCII humana táctica)
     const playerAscii = 
         "  o  \n" +
         " [#] \n" +
@@ -81,21 +37,21 @@ function create() {
     this.physics.add.existing(player);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(40, 50);
-    player.setData('facing', 'right'); // Dirección inicial para disparar
+    player.setData('facing', 'right');
 
     // Grupos de juego
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
 
-    // 3. COLOCAR LOS HUEVOS YA PRESENTES EN EL MAPA (10 huevos repartidos)
+    // 2. COLOCAR LOS HUEVOS YA PRESENTES EN EL MAPA (10 huevos repartidos)
     for (let i = 0; i < 10; i++) {
-        spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(150, 500));
+        spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
     // Colocar algunas arañas iniciales acechando en el mapa
     for (let i = 0; i < 3; i++) {
-        spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(150, 500));
+        spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
     }
 
     scoreText = this.add.text(16, 16, 'Huevos Restantes: 10', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
@@ -108,7 +64,7 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); // Pausa
-    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);    // Tecla F para disparar láser/ataque
+    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);    // Tecla F para disparar
 }
 
 function spawnStaticCoin(x, y) {
@@ -151,7 +107,6 @@ function spawnEnemy(x, y) {
 function collectCoin(p, coin) {
     if (isPaused) return;
     coin.destroy();
-    score++;
     let remaining = coins.countActive(true);
     scoreText.setText('Huevos Restantes: ' + remaining);
 
@@ -166,7 +121,7 @@ function hitEnemy(p, enemy) {
     lives--;
     livesText.setText('Salud del Traje: ' + lives);
     enemy.destroy();
-    spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(150, 500));
+    spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
 
     if (lives <= 0) return endGame();
 
@@ -178,7 +133,6 @@ function hitEnemy(p, enemy) {
     });
 }
 
-// Mecánica para que el mercenario elimine a los extraterrestres con la tecla F
 function shootBullet() {
     if (scene.time.now < lastFired) return;
 
@@ -197,15 +151,14 @@ function shootBullet() {
     bullet.body.setVelocityX(speedX);
     bullets.add(bullet);
 
-    lastFired = scene.time.now + 300; // Cadencia de disparo
+    lastFired = scene.time.now + 300;
 }
 
 function destroyEnemy(bullet, enemy) {
     bullet.destroy();
     enemy.destroy();
-    // Reaparece una nueva araña en otro punto tras un breve retardo
     scene.time.delayedCall(2000, () => {
-        if (lives > 0) spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(150, 500));
+        if (lives > 0) spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
     });
 }
 
@@ -236,15 +189,15 @@ function update() {
             pauseElements.push(bgOverlay);
 
             const pauseArt = 
-                " ██████╗   █████╗  ██╗   ██╗ ███████╗ ███████╗ ██████╗ \n" +
-                " ██╔══██╗ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔════╝ ██╔══██╗\n" +
-                " ██████╔╝ ███████║ ██║   ██║ ███████╗ ███████╗ ██║  ██║\n" +
-                " ██╔═══╝  ██╔══██║ ██║   ██║ ╚════██║ ╚════██║ ██║  ██║\n" +
-                " ██║      ██║  ██║ ╚██████╔╝ ███████║ ███████║ ██████╔╝";
+                "  ____   _   _   _ ___ ___ ___  ____  \n" +
+                " |  _ \\ / \\ | | | / __/ __|   \\|  _ \\ \n" +
+                " | |_) / _ \\| | | \\__ \\__ \\ |) | | | |\n" +
+                " |  __/ ___ \\ |_| |___/___/___/|_| |_|\n" +
+                " |_| /_/   \\_\\___/|____/____/         ";
 
             let asciiTitle = scene.add.text(400, 250, pauseArt, {
                 fontFamily: 'Courier, monospace',
-                fontSize: '13px',
+                fontSize: '14px',
                 fill: '#00ff41',
                 align: 'center'
             }).setOrigin(0.5);
@@ -281,14 +234,12 @@ function update() {
     if (cursors.up.isDown) player.body.setVelocityY(-300);
     else if (cursors.down.isDown) player.body.setVelocityY(300);
 
-    // Disparar láser con la tecla F
     if (Phaser.Input.Keyboard.JustDown(attackKey)) {
         shootBullet();
     }
 
     const speed = 100;
 
-    // EFECTO DE PROFUNDIDAD 3D Y ANIMACIÓN DE ARAÑAS
     player.setDepth(player.y);
 
     enemies.getChildren().forEach(e => {
