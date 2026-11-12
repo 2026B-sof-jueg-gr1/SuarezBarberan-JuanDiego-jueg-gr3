@@ -12,7 +12,7 @@ new Phaser.Game(config);
 let scene, player, cursors, coins, enemies, spaceKey;
 let scoreText, livesText, score, lives, invulnerable;
 let isPaused = false;
-let pauseText;
+let pauseElements = []; // Grupo para guardar los elementos visuales de la pausa
 
 function create() {
     scene = this;
@@ -121,7 +121,6 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
-    // Alienígena araña inicial (Frame 0 de patas)
     const spiderAscii = 
         " \\\\// \n" +
         " (o.o) \n" +
@@ -135,8 +134,6 @@ function spawnEnemy() {
     
     scene.physics.add.existing(enemy);
     enemy.body.setSize(35, 35);
-    
-    // Variables para controlar la animación de caminata de las patas
     enemy.setData('animTimer', 0);
     enemy.setData('frame', 0);
     
@@ -187,14 +184,40 @@ function update() {
         isPaused = !isPaused;
         if (isPaused) {
             scene.physics.pause();
-            pauseText = scene.add.text(400, 300, '- JUEGO PAUSADO -', {
-                fontSize: '36px',
+
+            // 1. Rectángulo semitransparente de fondo sobre todo el juego
+            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75);
+            pauseElements.push(bgOverlay);
+
+            // 2. Título de PAUSA hecho con arte ASCII grande y detallado
+            const pauseArt = 
+                " ██████╗   █████╗  ██╗   ██╗ ███████╗ ███████╗  █████╗ \n" +
+                " ██╔══██╗ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔════╝ ██╔══██╗\n" +
+                " ██████╔╝ ███████║ ██║   ██║ ███████> ███████> ███████║\n" +
+                " ██╔═══╝  ██╔══██║ ██║   ██║ ╚════██║ ╚════██║ ██╔══██║\n" +
+                " ██║      ██║  ██║ ╚██████╔╝ ███████║ ███████║ ██║  ██║";
+
+            let asciiTitle = scene.add.text(400, 250, pauseArt, {
+                fontFamily: 'Courier, monospace',
+                fontSize: '14px',
                 fill: '#00ff41',
-                fontFamily: 'Courier'
+                align: 'center'
             }).setOrigin(0.5);
+            pauseElements.push(asciiTitle);
+
+            // 3. Subtítulo indicando cómo reanudar
+            let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
+                fontFamily: 'Courier, monospace',
+                fontSize: '18px',
+                fill: '#ffffff'
+            }).setOrigin(0.5);
+            pauseElements.push(subText);
+
         } else {
             scene.physics.resume();
-            if (pauseText) pauseText.destroy();
+            // Borrar todos los elementos visuales del menú de pausa al reanudar
+            pauseElements.forEach(element => element.destroy());
+            pauseElements = [];
         }
     }
 
@@ -211,11 +234,9 @@ function update() {
 
     const speed = 90 + score * 5;
 
-    // Persecución y animación de caminata de las patas de araña
     enemies.getChildren().forEach(e => {
         scene.physics.moveToObject(e, player, speed);
 
-        // Alternar los caracteres de las patas cada 15 fotogramas para simular paso
         let timer = e.getData('animTimer') + 1;
         if (timer > 15) {
             let currentFrame = e.getData('frame');
