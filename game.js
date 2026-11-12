@@ -14,7 +14,7 @@ let coins, enemies, bullets;
 let scoreText, livesText, score = 0, lives = 3, invulnerable = false;
 let isPaused = false, pauseElements = [];
 let lastFired = 0;
-let gameStarted = false; // Controla si la cinemática terminó y el juego comenzó
+let gameStarted = false;
 
 function create() {
     scene = this;
@@ -35,15 +35,14 @@ function create() {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. COLOCAR LAS ARAÑAS (Estarán inactivas/quietas hasta que la nave suelte al mercenario)
+    // 2. COLOCAR LAS ARAÑAS
     for (let i = 0; i < 3; i++) {
         spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
     }
 
-    // Desactivar el movimiento de las arañas al inicio
     enemies.getChildren().forEach(e => e.setData('active', false));
 
-    // 3. JUGADOR (Inicia invisible o arriba, esperando a que la nave lo suelte)
+    // 3. JUGADOR
     const playerAscii = 
         "  o  \n" +
         " [#] \n" +
@@ -58,9 +57,9 @@ function create() {
     player.body.setCollideWorldBounds(true);
     player.body.setSize(40, 50);
     player.setData('facing', 'right');
-    player.setAlpha(0); // Invisible mientras llega la nave
+    player.setAlpha(0);
 
-    // 4. CREAR LA NAVE ESPACIAL Y EL HAZ DE LUZ SCI-FI
+    // 4. NAVE Y HAZ DE LUZ SCI-FI
     const shipAscii = 
         "   /===\\   \n" +
         "  [=====]  \n" +
@@ -73,28 +72,23 @@ function create() {
         align: 'center'
     }).setOrigin(0.5);
 
-    // Haz de luz tractor de la nave
     beam = this.add.rectangle(400, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
 
-    // Animación de entrada de la nave con Tweens de Phaser
     scene.tweens.add({
         targets: ship,
         y: 100,
         duration: 2000,
         ease: 'Power2',
         onComplete: () => {
-            // Mostrar al mercenario dentro del haz de luz
             player.setPosition(390, 120);
             player.setAlpha(1);
 
-            // Hacer que el mercenario descienda flotando por la luz hasta el suelo (Y: 350)
             scene.tweens.add({
                 targets: player,
                 y: 350,
                 duration: 1500,
                 ease: 'Linear',
                 onComplete: () => {
-                    // ¡El mercenario tocó el suelo! La nave se marcha y las arañas despiertan
                     beam.destroy();
                     
                     scene.tweens.add({
@@ -106,9 +100,8 @@ function create() {
                         onComplete: () => ship.destroy()
                     });
 
-                    // Las arañas detectan al mercenario y se activan
                     enemies.getChildren().forEach(e => e.setData('active', true));
-                    gameStarted = true; // Comienza el juego libre
+                    gameStarted = true;
                 }
             });
         }
@@ -117,7 +110,6 @@ function create() {
     scoreText = this.add.text(16, 16, 'Huevos Restantes: 10', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
     livesText = this.add.text(16, 48, 'Salud del Traje: 3', { fontSize: '20px', fill: '#ff0055', fontFamily: 'Courier' });
 
-    // Colisiones
     this.physics.add.overlap(player, coins, collectCoin);
     this.physics.add.overlap(player, enemies, hitEnemy);
     this.physics.add.overlap(bullets, enemies, destroyEnemy);
@@ -221,13 +213,10 @@ function destroyEnemy(bullet, enemy) {
     enemy.destroy();
     scene.time.delayedCall(2000, () => {
         if (lives > 0) {
-            let newEnemy = spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
-            // Si el juego ya empezó, el nuevo enemigo se activa de inmediato
-            if (gameStarted) {
-                enemies.getChildren().forEach(e => {
-                    if (!e.getData('active')) e.setData('active', true);
-                });
-            }
+            spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+            enemies.getChildren().forEach(e => {
+                if (!e.getData('active')) e.setData('active', true);
+            });
         }
     });
 }
@@ -258,22 +247,16 @@ function update() {
             let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75);
             pauseElements.push(bgOverlay);
 
-            const pauseArt = 
-                "  ____   _   _   _ ___ ___ ___  ____  \n" +
-                " |  _ \\ / \\ | | | / __/ __|   \\|  _ \\ \n" +
-                " | |_) / _ \\| | | \\__ \\__ \\ |) | | | |\n" +
-                " |  __/ ___ \\ |_| |___/___/___/|_| |_|\n" +
-                " |_| /_/   \\_\\___/|____/____/         ";
-
-            let asciiTitle = scene.add.text(400, 250, pauseArt, {
+            // ¡PAUSA limpio y directo con tipografía retro de terminal!
+            let pauseTitle = scene.add.text(400, 250, 'PAUSA', {
                 fontFamily: 'Courier, monospace',
-                fontSize: '14px',
-                fill: '#00ff41',
-                align: 'center'
+                fontSize: '48px',
+                fontStyle: 'bold',
+                fill: '#00ff41'
             }).setOrigin(0.5);
-            pauseElements.push(asciiTitle);
+            pauseElements.push(pauseTitle);
 
-            let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
+            let subText = scene.add.text(400, 340, '- PRESIONA ESPACIO PARA CONTINUAR -', {
                 fontFamily: 'Courier, monospace',
                 fontSize: '18px',
                 fill: '#ffffff'
@@ -288,7 +271,6 @@ function update() {
     }
 
     if (isPaused || !gameStarted) {
-        // Si el juego está pausado o en medio de la cinemática de aterrizaje, detenemos al jugador
         if (player) player.body.setVelocity(0);
         return;
     }
@@ -314,11 +296,10 @@ function update() {
     player.setDepth(player.y);
 
     enemies.getChildren().forEach(e => {
-        // Las arañas solo persiguen si la cinemática terminó (active = true)
         if (e.getData('active')) {
             scene.physics.moveToObject(e, player, speed);
         } else {
-            e.body.setVelocity(0); // Quietas esperando que baje el mercenario
+            e.body.setVelocity(0);
         }
 
         e.setDepth(e.y);
