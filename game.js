@@ -19,13 +19,14 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 400;
 
-// Variables de recolección y extracción corporativa
+// Variables de recolección y sigilo
 let collectingCoin = null;
 let collectTimer = 0;
 let collectDuration = 10000;
+let playerAlerted = false; // Controla si ya tocaron un huevo y alertaron a la horda
 let extracting = false;
 let extractionTotalTimer = 10000;
-let extractionCountdownTimer = 5000; // Se ajustará según los huevos
+let extractionCountdownTimer = 5000;
 let extractionZone = null;
 let extractionShip = null;
 let extractionBeam = null;
@@ -42,6 +43,7 @@ function create() {
     invulnerable = false;
     isPaused = false;
     gameStarted = false;
+    playerAlerted = false; // Inicias en sigilo
     extracting = false;
     collectingCoin = null;
     collectTimer = 0;
@@ -58,7 +60,6 @@ function create() {
     let ambientRedOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.12);
     ambientRedOverlay.setDepth(9999);
 
-    // Generar suelo y césped rojo rosadizo
     const cols = 55;
     const rows = 22;
     let groundGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
@@ -108,15 +109,18 @@ function create() {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    for (let i = 0; i < 5; i++) {
+    // Arañas en modo patrullaje por el planeta
+    for (let i = 0; i < 6; i++) {
         let side = Phaser.Math.Between(0, 3);
         let outX, outY;
-        if (side === 0) { outX = Phaser.Math.Between(-400, -100); outY = Phaser.Math.Between(-400, 1000); }
-        else if (side === 1) { outX = Phaser.Math.Between(900, 1200); outY = Phaser.Math.Between(-400, 1000); }
-        else if (side === 2) { outX = Phaser.Math.Between(-400, 1200); outY = Phaser.Math.Between(-400, -100); }
-        else { outX = Phaser.Math.Between(-400, 1200); outY = Phaser.Math.Between(700, 1000); }
+        if (side === 0) { outX = Phaser.Math.Between(-300, -100); outY = Phaser.Math.Between(0, 600); }
+        else if (side === 1) { outX = Phaser.Math.Between(900, 1100); outY = Phaser.Math.Between(0, 600); }
+        else if (side === 2) { outX = Phaser.Math.Between(0, 800); outY = Phaser.Math.Between(-300, -100); }
+        else { outX = Phaser.Math.Between(0, 800); outY = Phaser.Math.Between(700, 900); }
 
-        spawnEnemy(outX, outY);
+        let enemy = spawnEnemy(outX, outY);
+        // Asignar un punto de patrulla aleatorio inicial
+        enemy.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
     }
 
     enemies.getChildren().forEach(e => e.setData('active', false));
@@ -167,7 +171,8 @@ function create() {
                 ease: 'Linear',
                 onComplete: () => {
                     beam.destroy();
-                    scene.cameras.main.shake(800, 0.015);
+                    // Al tocar tierra NO hay temblor todavía (estás en sigilo)
+                    scene.cameras.main.flash(500, 255, 0, 50);
 
                     introTween3 = scene.tweens.add({
                         targets: ship,
@@ -178,6 +183,7 @@ function create() {
                         onComplete: () => ship.destroy()
                     });
 
+                    // Las arañas se activan pero empiezan merodeando
                     enemies.getChildren().forEach(e => e.setData('active', true));
                     gameStarted = true;
                 }
@@ -235,6 +241,7 @@ function spawnEnemy(x, y) {
     enemy.setData('active', false);
     
     enemies.add(enemy);
+    return enemy;
 }
 
 function hitEnemy(p, enemy) {
@@ -250,8 +257,9 @@ function hitEnemy(p, enemy) {
     let side = Phaser.Math.Between(0, 3);
     let outX = side === 0 ? -300 : (side === 1 ? 1100 : Phaser.Math.Between(-300, 1100));
     let outY = side === 2 ? -300 : (side === 3 ? 900 : Phaser.Math.Between(-300, 900));
-    spawnEnemy(outX, outY);
-    enemies.getChildren().forEach(e => e.setData('active', true));
+    let newE = spawnEnemy(outX, outY);
+    newE.setData('active', true);
+    newE.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
 
     if (lives <= 0) return endGame();
 
@@ -295,10 +303,9 @@ function destroyEnemy(bullet, enemy) {
             let side = Phaser.Math.Between(0, 3);
             let outX = side === 0 ? -300 : (side === 1 ? 1100 : Phaser.Math.Between(-300, 1100));
             let outY = side === 2 ? -300 : (side === 3 ? 900 : Phaser.Math.Between(-300, 900));
-            spawnEnemy(outX, outY);
-            enemies.getChildren().forEach(e => {
-                if (!e.getData('active')) e.setData('active', true);
-            });
+            let newE = spawnEnemy(outX, outY);
+            newE.setData('active', true);
+            newE.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
         }
     });
 }
@@ -309,25 +316,26 @@ function triggerExtraction() {
     extractionPhase = 0;
     window.extractingStartTime = scene.time.now;
 
-    // EVALUACIÓN CORPORATIVA BASADA EN LOS HUEVOS RECOLECTADOS
+    // Al pedir extracción, si no estaban alertadas, se alertan por el ruido de la radio
+    if (!playerAlerted) {
+        playerAlerted = true;
+        scene.cameras.main.shake(600, 0.01);
+    }
+
     if (score > 0) {
-        // EXTRACCIÓN VIP: Tienes huevos, la corporación te premia
-        extractionCountdownTimer = 7000; // Te esperan 7 segundos generosos
-        corporateHelpActive = true; // La nave te ayuda a disparar a los aliens
+        extractionCountdownTimer = 7000;
+        corporateHelpActive = true;
         extractionText.setText('CENTRAL: ¡Buen trabajo! Extracción VIP en camino...');
         
-        // Punto de extracción cercano al jugador
         let offsetX = Phaser.Math.Between(-150, 150);
         let offsetY = Phaser.Math.Between(-100, 100);
         extractionPoint.x = Phaser.Math.Clamp(player.x + offsetX, 100, 700);
         extractionPoint.y = Phaser.Math.Clamp(player.y + offsetY, 100, 500);
     } else {
-        // CASTIGO CORPORATIVO: Cero huevos
-        extractionCountdownTimer = 3000; // Solo 3 miserables segundos para llegar
+        extractionCountdownTimer = 3000;
         corporateHelpActive = false;
         extractionText.setText('CENTRAL: ¿Cero huevos? ¿En serio? Resuélvelo tú.');
         
-        // Punto de extracción en la esquina más lejana y jodida del mapa
         extractionPoint.x = player.x < 400 ? 720 : 80;
         extractionPoint.y = player.y < 300 ? 520 : 80;
     }
@@ -365,7 +373,6 @@ function triggerExtraction() {
 
             extractionBeam = scene.add.rectangle(extractionPoint.x, extractionPoint.y - 60, 50, 120, 0x00ffff, 0.3).setOrigin(0.5, 0);
 
-            // VENTANA DE TIEMPO PARA LLEGAR (7s si trajiste huevos, 3s si viniste con las manos vacías)
             scene.time.delayedCall(extractionCountdownTimer, () => {
                 if (lives > 0 && extracting && extractionPhase === 1) {
                     let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
@@ -528,7 +535,6 @@ function update(time, delta) {
         extractionText.setText('[E] Solicitar Extracción');
     }
 
-    // Si la ayuda corporativa está activa (porque trajiste huevos), la nave dispara láseres automáticos de apoyo a los aliens cercanos
     if (corporateHelpActive && extractionShip) {
         enemies.getChildren().forEach(e => {
             if (e.active && Phaser.Math.Distance.Between(extractionShip.x, extractionShip.y, e.x, e.y) < 250) {
@@ -552,12 +558,19 @@ function update(time, delta) {
 
     player.body.setVelocity(0);
     
+    // RECOLECCIÓN DE HUEVOS Y GATILLO DE ALERTA GENERAL
     if (collectingCoin) {
         if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown || Phaser.Input.Keyboard.JustDown(attackKey)) {
             collectingCoin = null;
             collectTimer = 0;
             timerText.setText('');
         } else {
+            // AL TOCAR UN HUEVO Y EMPEZAR A COGERLO, SE DA EL TEMBLOR Y SE ALERTA A TODAS LAS ARAÑAS
+            if (!playerAlerted) {
+                playerAlerted = true;
+                scene.cameras.main.shake(800, 0.015); // ¡Temblor por tocar el huevo!
+            }
+
             collectTimer += delta;
             let progress = Math.floor((collectTimer / collectDuration) * 100);
             timerText.setText('Recolectando huevo: ' + progress + '% (Muévete para cancelar)');
@@ -602,12 +615,22 @@ function update(time, delta) {
         shootBullet();
     }
 
-    const speed = 45; 
     player.setDepth(player.y);
 
     enemies.getChildren().forEach(e => {
         if (e.getData('active')) {
-            scene.physics.moveToObject(e, player, speed);
+            if (playerAlerted) {
+                // SI ESTÁ ALERTADO: Van directo a cazar al jugador
+                scene.physics.moveToObject(e, player, 45);
+            } else {
+                // MODO SIGILO: Las arañas patrullan y merodean buscando por el planeta
+                let target = e.getData('patrolTarget');
+                if (Phaser.Math.Distance.Between(e.x, e.y, target.x, target.y) < 20) {
+                    // Cambiar a nuevo punto de patrulla aleatorio
+                    e.setData('patrolTarget', { x: Phaser.Math.Between(50, 750), y: Phaser.Math.Between(50, 550) });
+                }
+                scene.physics.moveToObject(e, target, 30); // Se mueven lento merodeando
+            }
         } else {
             e.body.setVelocity(0);
         }
@@ -677,9 +700,10 @@ function drawMinimap() {
         scene.minimapContainer.add(exDot);
     }
 
+    // Dibujar enemigos merodeando u hostiles en el radar
     enemies.getChildren().forEach(e => {
         if (e.active) {
-            let dot = scene.add.rectangle(scaleX(e.x), scaleY(e.y), 2, 2, 0xffaa00);
+            let dot = scene.add.rectangle(scaleX(e.x), scaleY(e.y), 2, 2, playerAlerted ? 0xff0000 : 0xffaa00);
             scene.minimapContainer.add(dot);
         }
     });
