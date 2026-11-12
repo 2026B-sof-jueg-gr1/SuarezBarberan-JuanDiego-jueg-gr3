@@ -19,7 +19,7 @@ function create() {
     lives = 3;
     invulnerable = false;
 
-    // 1. JUGADOR EN ARTE ASCII (Figura humana hecha con símbolos)
+    // 1. JUGADOR (Figura ASCII humana táctica)
     const playerAscii = 
         "  o  \n" +
         " [#] \n" +
@@ -32,7 +32,7 @@ function create() {
     });
     this.physics.add.existing(player);
     player.body.setCollideWorldBounds(true);
-    player.body.setSize(40, 50); // Ajustar la caja de colisión al texto
+    player.body.setSize(40, 50);
 
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
@@ -53,9 +53,20 @@ function spawnCoin() {
     const x = Phaser.Math.Between(50, 750);
     const y = Phaser.Math.Between(80, 550);
     
-    // Huevo (Círculo rojo brillante)
-    let coin = scene.add.circle(x, y, 10, 0xff0055);
+    // 2. HUEVO ALIENÍGENA EN ARTE ASCII (Cúmulo orgánico e irregular de símbolos sobrepuestos)
+    const eggAscii = 
+        " *Oo* \n" +
+        "o@@@O\n" +
+        " *o0* ";
+
+    let coin = scene.add.text(x, y, eggAscii, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '14px',
+        fill: '#ff0055' // Fucsia/Rojo alienígena
+    });
+    
     scene.physics.add.existing(coin);
+    coin.body.setSize(30, 35); // Ajustar hitbox
     coins.add(coin);
 }
 
@@ -63,9 +74,20 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
-    // Enemigo (Bloque guardián naranja)
-    let enemy = scene.add.rectangle(x, y, 28, 28, 0xffaa00);
+    // 3. ENEMIGO (Cúmulo guardián hecho con símbolos ásperos)
+    const enemyAscii = 
+        "#####\n" +
+        "#X#X#\n" +
+        "#####";
+
+    let enemy = scene.add.text(x, y, enemyAscii, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '14px',
+        fill: '#ffaa00' // Naranja peligroso
+    });
+    
     scene.physics.add.existing(enemy);
+    enemy.body.setSize(35, 35);
     enemies.add(enemy);
 }
 
@@ -109,9 +131,9 @@ function update() {
 
     player.body.setVelocity(0);
     if (cursors.left.isDown) player.body.setVelocityX(-300);
-    else if (cursors.right.isDown) player.body.setVelocityX(300);
-    if (cursors.up.isDown) player.body.setVelocityY(-300);
-    else if (cursors.down.isDown) player.body.setVelocityY(300);
+    else if (cursors.right.isDown) player.setVelocityX(300);
+    if (cursors.up.isDown) player.setVelocityY(-300);
+    else if (cursors.down.isDown) player.setVelocityY(300);
 
     const speed = 90 + score * 5;
     enemies.getChildren().forEach(e => scene.physics.moveToObject(e, player, speed));
