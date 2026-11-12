@@ -9,11 +9,12 @@ const config = {
 
 new Phaser.Game(config);
 
-let scene, player, cursors, spaceKey, attackKey;
+let scene, player, ship, beam, cursors, spaceKey, attackKey;
 let coins, enemies, bullets;
 let scoreText, livesText, score = 0, lives = 3, invulnerable = false;
 let isPaused = false, pauseElements = [];
 let lastFired = 0;
+let gameStarted = false; // Controla si la cinemática terminó y el juego comenzó
 
 function create() {
     scene = this;
@@ -22,14 +23,33 @@ function create() {
     lives = 3;
     invulnerable = false;
     isPaused = false;
+    gameStarted = false;
 
-    // 1. JUGADOR (Figura ASCII humana táctica)
+    // Grupos de juego
+    coins = this.physics.add.group();
+    enemies = this.physics.add.group();
+    bullets = this.physics.add.group();
+
+    // 1. COLOCAR LOS HUEVOS EN EL MAPA
+    for (let i = 0; i < 10; i++) {
+        spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
+    }
+
+    // 2. COLOCAR LAS ARAÑAS (Estarán inactivas/quietas hasta que la nave suelte al mercenario)
+    for (let i = 0; i < 3; i++) {
+        spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+    }
+
+    // Desactivar el movimiento de las arañas al inicio
+    enemies.getChildren().forEach(e => e.setData('active', false));
+
+    // 3. JUGADOR (Inicia invisible o arriba, esperando a que la nave lo suelte)
     const playerAscii = 
         "  o  \n" +
         " [#] \n" +
         " / \\ ";
     
-    player = this.add.text(400, 300, playerAscii, {
+    player = this.add.text(400, 50, playerAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
         fill: '#00ff41'
@@ -38,33 +58,73 @@ function create() {
     player.body.setCollideWorldBounds(true);
     player.body.setSize(40, 50);
     player.setData('facing', 'right');
+    player.setAlpha(0); // Invisible mientras llega la nave
 
-    // Grupos de juego
-    coins = this.physics.add.group();
-    enemies = this.physics.add.group();
-    bullets = this.physics.add.group();
+    // 4. CREAR LA NAVE ESPACIAL Y EL HAZ DE LUZ SCI-FI
+    const shipAscii = 
+        "   /===\\   \n" +
+        "  [=====]  \n" +
+        "== O O O == ";
 
-    // 2. COLOCAR LOS HUEVOS YA PRESENTES EN EL MAPA (10 huevos repartidos)
-    for (let i = 0; i < 10; i++) {
-        spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
-    }
+    ship = this.add.text(400, -50, shipAscii, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '16px',
+        fill: '#00ffff',
+        align: 'center'
+    }).setOrigin(0.5);
 
-    // Colocar algunas arañas iniciales acechando en el mapa
-    for (let i = 0; i < 3; i++) {
-        spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
-    }
+    // Haz de luz tractor de la nave
+    beam = this.add.rectangle(400, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
+
+    // Animación de entrada de la nave con Tweens de Phaser
+    scene.tweens.add({
+        targets: ship,
+        y: 100,
+        duration: 2000,
+        ease: 'Power2',
+        onComplete: () => {
+            // Mostrar al mercenario dentro del haz de luz
+            player.setPosition(390, 120);
+            player.setAlpha(1);
+
+            // Hacer que el mercenario descienda flotando por la luz hasta el suelo (Y: 350)
+            scene.tweens.add({
+                targets: player,
+                y: 350,
+                duration: 1500,
+                ease: 'Linear',
+                onComplete: () => {
+                    // ¡El mercenario tocó el suelo! La nave se marcha y las arañas despiertan
+                    beam.destroy();
+                    
+                    scene.tweens.add({
+                        targets: ship,
+                        y: -100,
+                        x: 900,
+                        duration: 1500,
+                        ease: 'Power2',
+                        onComplete: () => ship.destroy()
+                    });
+
+                    // Las arañas detectan al mercenario y se activan
+                    enemies.getChildren().forEach(e => e.setData('active', true));
+                    gameStarted = true; // Comienza el juego libre
+                }
+            });
+        }
+    });
 
     scoreText = this.add.text(16, 16, 'Huevos Restantes: 10', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
     livesText = this.add.text(16, 48, 'Salud del Traje: 3', { fontSize: '20px', fill: '#ff0055', fontFamily: 'Courier' });
 
-    // Colisiones y overlaps
+    // Colisiones
     this.physics.add.overlap(player, coins, collectCoin);
     this.physics.add.overlap(player, enemies, hitEnemy);
     this.physics.add.overlap(bullets, enemies, destroyEnemy);
 
     cursors = this.input.keyboard.createCursorKeys();
-    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); // Pausa
-    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);    // Tecla F para disparar
+    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
 }
 
 function spawnStaticCoin(x, y) {
@@ -100,12 +160,13 @@ function spawnEnemy(x, y) {
     enemy.body.setSize(35, 35);
     enemy.setData('animTimer', 0);
     enemy.setData('frame', 0);
+    enemy.setData('active', false);
     
     enemies.add(enemy);
 }
 
 function collectCoin(p, coin) {
-    if (isPaused) return;
+    if (isPaused || !gameStarted) return;
     coin.destroy();
     let remaining = coins.countActive(true);
     scoreText.setText('Huevos Restantes: ' + remaining);
@@ -116,12 +177,13 @@ function collectCoin(p, coin) {
 }
 
 function hitEnemy(p, enemy) {
-    if (invulnerable || isPaused) return;
+    if (invulnerable || isPaused || !gameStarted) return;
 
     lives--;
     livesText.setText('Salud del Traje: ' + lives);
     enemy.destroy();
     spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+    enemies.getChildren().forEach(e => e.setData('active', true));
 
     if (lives <= 0) return endGame();
 
@@ -134,7 +196,7 @@ function hitEnemy(p, enemy) {
 }
 
 function shootBullet() {
-    if (scene.time.now < lastFired) return;
+    if (!gameStarted || scene.time.now < lastFired) return;
 
     let bullet = scene.add.text(player.x + 15, player.y + 15, '---', {
         fontFamily: 'Courier, monospace',
@@ -158,7 +220,15 @@ function destroyEnemy(bullet, enemy) {
     bullet.destroy();
     enemy.destroy();
     scene.time.delayedCall(2000, () => {
-        if (lives > 0) spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+        if (lives > 0) {
+            let newEnemy = spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+            // Si el juego ya empezó, el nuevo enemigo se activa de inmediato
+            if (gameStarted) {
+                enemies.getChildren().forEach(e => {
+                    if (!e.getData('active')) e.setData('active', true);
+                });
+            }
+        }
     });
 }
 
@@ -217,8 +287,9 @@ function update() {
         }
     }
 
-    if (isPaused) {
-        player.body.setVelocity(0);
+    if (isPaused || !gameStarted) {
+        // Si el juego está pausado o en medio de la cinemática de aterrizaje, detenemos al jugador
+        if (player) player.body.setVelocity(0);
         return;
     }
 
@@ -243,7 +314,13 @@ function update() {
     player.setDepth(player.y);
 
     enemies.getChildren().forEach(e => {
-        scene.physics.moveToObject(e, player, speed);
+        // Las arañas solo persiguen si la cinemática terminó (active = true)
+        if (e.getData('active')) {
+            scene.physics.moveToObject(e, player, speed);
+        } else {
+            e.body.setVelocity(0); // Quietas esperando que baje el mercenario
+        }
+
         e.setDepth(e.y);
 
         let depthScale = Phaser.Math.Clamp(e.y / 450, 0.7, 1.3);
