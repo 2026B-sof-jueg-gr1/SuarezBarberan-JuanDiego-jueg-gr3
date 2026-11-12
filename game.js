@@ -19,11 +19,14 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 400;
 
-// Variables de recolección y sigilo
-let collectingCoin = null;
-let collectTimer = 0;
-let collectDuration = 10000;
-let playerAlerted = false; // Controla si ya tocaron un huevo y alertaron a la horda
+// Variables de minijuego de corte (Among Us style)
+let cuttingActive = false;
+let targetCoin = null;
+let cutProgress = 0;
+let lastMouseX = 0;
+let cutUIElements = [];
+
+let playerAlerted = false;
 let extracting = false;
 let extractionTotalTimer = 10000;
 let extractionCountdownTimer = 5000;
@@ -43,10 +46,11 @@ function create() {
     invulnerable = false;
     isPaused = false;
     gameStarted = false;
-    playerAlerted = false; // Inicias en sigilo
+    playerAlerted = false;
     extracting = false;
-    collectingCoin = null;
-    collectTimer = 0;
+    cuttingActive = false;
+    targetCoin = null;
+    cutProgress = 0;
     extractionZone = null;
     extractionShip = null;
     extractionBeam = null;
@@ -56,7 +60,6 @@ function create() {
 
     landingX = Phaser.Math.Between(250, 550);
 
-    // Filtro ambiental rojizo
     let ambientRedOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.12);
     ambientRedOverlay.setDepth(9999);
 
@@ -109,7 +112,6 @@ function create() {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // Arañas en modo patrullaje por el planeta
     for (let i = 0; i < 6; i++) {
         let side = Phaser.Math.Between(0, 3);
         let outX, outY;
@@ -119,7 +121,6 @@ function create() {
         else { outX = Phaser.Math.Between(0, 800); outY = Phaser.Math.Between(700, 900); }
 
         let enemy = spawnEnemy(outX, outY);
-        // Asignar un punto de patrulla aleatorio inicial
         enemy.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
     }
 
@@ -171,7 +172,6 @@ function create() {
                 ease: 'Linear',
                 onComplete: () => {
                     beam.destroy();
-                    // Al tocar tierra NO hay temblor todavía (estás en sigilo)
                     scene.cameras.main.flash(500, 255, 0, 50);
 
                     introTween3 = scene.tweens.add({
@@ -183,7 +183,6 @@ function create() {
                         onComplete: () => ship.destroy()
                     });
 
-                    // Las arañas se activan pero empiezan merodeando
                     enemies.getChildren().forEach(e => e.setData('active', true));
                     gameStarted = true;
                 }
@@ -203,6 +202,21 @@ function create() {
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.KeyF);
     extractKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+    // Configurar evento de movimiento del mouse para el minijuego de corte
+    scene.input.on('pointermove', (pointer) => {
+        if (!cuttingActive) return;
+
+        // Detectar arrastre de izquierda a derecha para cortar
+        let deltaX = pointer.x - lastMouseX;
+        if (deltaX > 2) { // Si mueve el mouse a la derecha activamente
+            cutProgress += deltaX * 0.8;
+            if (cutProgress >= 100) {
+                completeCutting();
+            }
+        }
+        lastMouseX = pointer.x;
+    });
 }
 
 function spawnStaticCoin(x, y) {
@@ -247,8 +261,7 @@ function spawnEnemy(x, y) {
 function hitEnemy(p, enemy) {
     if (invulnerable || isPaused || !gameStarted || extractionPhase === 2) return;
 
-    collectingCoin = null;
-    collectTimer = 0;
+    if (cuttingActive) cancelCutting();
 
     lives--;
     livesText.setText('Salud: ' + lives);
@@ -272,10 +285,7 @@ function hitEnemy(p, enemy) {
 }
 
 function shootBullet() {
-    if (!gameStarted || scene.time.now < lastFired || extractionPhase === 2) return;
-
-    collectingCoin = null;
-    collectTimer = 0;
+    if (!gameStarted || scene.time.now < lastFired || extractionPhase === 2 || cuttingActive) return;
 
     let bullet = scene.add.text(player.x + 15, player.y + 15, '---', {
         fontFamily: 'Courier, monospace',
@@ -310,13 +320,62 @@ function destroyEnemy(bullet, enemy) {
     });
 }
 
+// INICIAR MINIJUEGO DE CORTE TIPO AMONG US
+function startCutting(coin) {
+    if (cuttingActive || !gameStarted) return;
+    cuttingActive = true;
+    targetCoin = coin;
+    cutProgress = 0;
+    lastMouseX = scene.input.activePointer.x;
+
+    // Al interactuar con el huevo, se produce el temblor y se alerta a la horda[cite: 1, 2]
+    if (!playerAlerted) {
+        playerAlerted = true;
+        scene.cameras.main.shake(800, 0.015);
+    }
+
+    // Interfaz en primer plano del minijuego
+    let bgBox = scene.add.rectangle(400, 300, 450, 250, 0x05050a, 0.95).setStrokeStyle(3, 0xff1a40).setDepth(20000);
+    let title = scene.add.text(400, 200, '>>> CORTE DE CÁPSULA TÁCTICA <<<', { fontSize: '14px', fill: '#ff4d79', fontFamily: 'Courier' }).setOrigin(0.5).setDepth(20001);
+    let instruction = scene.add.text(400, 230, 'Mueve el mouse de izquierda a derecha', { fontSize: '12px', fill: '#ffffff', fontFamily: 'Courier' }).setOrigin(0.5).setDepth(20001);
+    
+    let barBg = scene.add.rectangle(400, 300, 300, 24, 0x222222).setStrokeStyle(1, 0xffffff).setDepth(20000);
+    let barFill = scene.add.rectangle(250, 300, 0, 20, 0xff1a40).setOrigin(0, 0.5).setDepth(20001);
+
+    let cancelBtn = scene.add.text(400, 380, '[ Presiona ESPACIO o muévete para cancelar ]', { fontSize: '11px', fill: '#ffaa00', fontFamily: 'Courier' }).setOrigin(0.5).setDepth(20001);
+
+    cutUIElements = [bgBox, title, instruction, barBg, barFill, cancelBtn];
+}
+
+function completeCutting() {
+    if (!cuttingActive) return;
+    if (targetCoin && targetCoin.active) {
+        targetCoin.destroy();
+    }
+    score++;
+    scoreText.setText('Huevos: ' + score + ' / 10');
+    closeCuttingUI();
+}
+
+function cancelCutting() {
+    closeCuttingUI();
+    timerText.setText('¡Corte cancelado!');
+    scene.time.delayedCall(1500, () => timerText.setText(''));
+}
+
+function closeCuttingUI() {
+    cuttingActive = false;
+    targetCoin = null;
+    cutUIElements.forEach(el => el.destroy());
+    cutUIElements = [];
+}
+
 function triggerExtraction() {
-    if (extracting || !gameStarted || isPaused) return;
+    if (extracting || !gameStarted || isPaused || cuttingActive) return;
     extracting = true;
     extractionPhase = 0;
     window.extractingStartTime = scene.time.now;
 
-    // Al pedir extracción, si no estaban alertadas, se alertan por el ruido de la radio
     if (!playerAlerted) {
         playerAlerted = true;
         scene.cameras.main.shake(600, 0.01);
@@ -467,6 +526,11 @@ function update(time, delta) {
     if (lives <= 0) return;
 
     if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+        if (cuttingActive) {
+            cancelCutting();
+            return;
+        }
+
         isPaused = !isPaused;
         if (isPaused) {
             scene.physics.pause();
@@ -551,65 +615,42 @@ function update(time, delta) {
         });
     }
 
-    if (extractionPhase === 2) {
+    if (extractionPhase === 2 || cuttingActive) {
         player.body.setVelocity(0);
+        if (cuttingActive) {
+            // Actualizar la barra visual del minijuego de corte
+            if (cutUIElements[4]) {
+                cutUIElements[4].width = Math.min(300, (cutProgress / 100) * 300);
+            }
+            // Si el jugador se mueve con flechas, cancela el corte
+            if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown) {
+                cancelCutting();
+            }
+        }
         return;
     }
 
     player.body.setVelocity(0);
     
-    // RECOLECCIÓN DE HUEVOS Y GATILLO DE ALERTA GENERAL
-    if (collectingCoin) {
-        if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown || Phaser.Input.Keyboard.JustDown(attackKey)) {
-            collectingCoin = null;
-            collectTimer = 0;
-            timerText.setText('');
-        } else {
-            // AL TOCAR UN HUEVO Y EMPEZAR A COGERLO, SE DA EL TEMBLOR Y SE ALERTA A TODAS LAS ARAÑAS
-            if (!playerAlerted) {
-                playerAlerted = true;
-                scene.cameras.main.shake(800, 0.015); // ¡Temblor por tocar el huevo!
-            }
-
-            collectTimer += delta;
-            let progress = Math.floor((collectTimer / collectDuration) * 100);
-            timerText.setText('Recolectando huevo: ' + progress + '% (Muévete para cancelar)');
-
-            if (Phaser.Math.Distance.Between(player.x, player.y, collectingCoin.x, collectingCoin.y) > 55) {
-                collectingCoin = null;
-                collectTimer = 0;
-                timerText.setText('');
-            } else if (collectTimer >= collectDuration) {
-                collectingCoin.destroy();
-                collectingCoin = null;
-                collectTimer = 0;
-                score++;
-                scoreText.setText('Huevos: ' + score + ' / 10');
-                timerText.setText('');
-            }
-        }
-    } else {
-        if (cursors.left.isDown) {
-            player.body.setVelocityX(-300);
-            player.setData('facing', 'left');
-        } else if (cursors.right.isDown) {
-            player.body.setVelocityX(300);
-            player.setData('facing', 'right');
-        }
-
-        if (cursors.up.isDown) {
-            player.body.setVelocityY(-300);
-        } else if (cursors.down.isDown) {
-            player.body.setVelocityY(300);
-        }
-
-        coins.getChildren().forEach(coin => {
-            if (coin.active && Phaser.Math.Distance.Between(player.x, player.y, coin.x, coin.y) < 40) {
-                collectingCoin = coin;
-                collectTimer = 0;
-            }
-        });
+    if (cursors.left.isDown) {
+        player.body.setVelocityX(-300);
+        player.setData('facing', 'left');
+    } else if (cursors.right.isDown) {
+        player.body.setVelocityX(300);
+        player.setData('facing', 'right');
     }
+
+    if (cursors.up.isDown) {
+        player.body.setVelocityY(-300);
+    } else if (cursors.down.isDown) {
+        player.body.setVelocityY(300);
+    }
+
+    coins.getChildren().forEach(coin => {
+        if (coin.active && Phaser.Math.Distance.Between(player.x, player.y, coin.x, coin.y) < 40) {
+            startCutting(coin);
+        }
+    });
 
     if (Phaser.Input.Keyboard.JustDown(attackKey)) {
         shootBullet();
@@ -620,16 +661,13 @@ function update(time, delta) {
     enemies.getChildren().forEach(e => {
         if (e.getData('active')) {
             if (playerAlerted) {
-                // SI ESTÁ ALERTADO: Van directo a cazar al jugador
                 scene.physics.moveToObject(e, player, 45);
             } else {
-                // MODO SIGILO: Las arañas patrullan y merodean buscando por el planeta
                 let target = e.getData('patrolTarget');
                 if (Phaser.Math.Distance.Between(e.x, e.y, target.x, target.y) < 20) {
-                    // Cambiar a nuevo punto de patrulla aleatorio
                     e.setData('patrolTarget', { x: Phaser.Math.Between(50, 750), y: Phaser.Math.Between(50, 550) });
                 }
-                scene.physics.moveToObject(e, target, 30); // Se mueven lento merodeando
+                scene.physics.moveToObject(e, target, 30);
             }
         } else {
             e.body.setVelocity(0);
@@ -700,7 +738,6 @@ function drawMinimap() {
         scene.minimapContainer.add(exDot);
     }
 
-    // Dibujar enemigos merodeando u hostiles en el radar
     enemies.getChildren().forEach(e => {
         if (e.active) {
             let dot = scene.add.rectangle(scaleX(e.x), scaleY(e.y), 2, 2, playerAlerted ? 0xff0000 : 0xffaa00);
