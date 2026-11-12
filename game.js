@@ -15,7 +15,8 @@ let scoreText, livesText, score = 0, lives = 3, invulnerable = false;
 let isPaused = false, pauseElements = [];
 let lastFired = 0;
 let gameStarted = false;
-let introTween1, introTween2, introTween3; // Referencias para pausar los tweens de la intro
+let introTween1, introTween2, introTween3;
+let landingX = 400; // Posición X aleatoria de aterrizaje
 
 function create() {
     scene = this;
@@ -26,6 +27,9 @@ function create() {
     isPaused = false;
     gameStarted = false;
 
+    // Definir una coordenada X aleatoria para la llegada en cada partida
+    landingX = Phaser.Math.Between(200, 600);
+
     coins = this.physics.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
@@ -35,9 +39,14 @@ function create() {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. COLOCAR LAS ARAÑAS
+    // 2. COLOCAR LAS ARAÑAS LEJOS DE LA ZONA DE APARICIÓN (landingX)
     for (let i = 0; i < 3; i++) {
-        spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+        let enemyX = Phaser.Math.Between(50, 750);
+        // Asegurar que no aparezcan cerca del punto donde caerá el jugador
+        while (Math.abs(enemyX - landingX) < 180) {
+            enemyX = Phaser.Math.Between(50, 750);
+        }
+        spawnEnemy(enemyX, Phaser.Math.Between(100, 500));
     }
 
     enemies.getChildren().forEach(e => e.setData('active', false));
@@ -48,7 +57,7 @@ function create() {
         " [#] \n" +
         " / \\ ";
     
-    player = this.add.text(400, 50, playerAscii, {
+    player = this.add.text(landingX, 50, playerAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
         fill: '#00ff41'
@@ -59,29 +68,29 @@ function create() {
     player.setData('facing', 'right');
     player.setAlpha(0);
 
-    // 4. NAVE Y HAZ DE LUZ SCI-FI
+    // 4. NAVE Y HAZ DE LUZ SCI-FI POSICIONADOS EN EL LANDING ALEATORIO
     const shipAscii = 
         "   /===\\   \n" +
         "  [=====]  \n" +
         "== O O O == ";
 
-    ship = this.add.text(400, -50, shipAscii, {
+    ship = this.add.text(landingX, -50, shipAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '16px',
         fill: '#00ffff',
         align: 'center'
     }).setOrigin(0.5);
 
-    beam = this.add.rectangle(400, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
+    beam = this.add.rectangle(landingX, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
 
-    // Animaciones de entrada guardadas para poder pausarlas
+    // Animaciones de entrada
     introTween1 = scene.tweens.add({
         targets: ship,
         y: 100,
         duration: 2000,
         ease: 'Power2',
         onComplete: () => {
-            player.setPosition(390, 120);
+            player.setPosition(landingX - 10, 120);
             player.setAlpha(1);
 
             introTween2 = scene.tweens.add({
@@ -95,7 +104,7 @@ function create() {
                     introTween3 = scene.tweens.add({
                         targets: ship,
                         y: -100,
-                        x: 900,
+                        x: landingX + 500,
                         duration: 1500,
                         ease: 'Power2',
                         onComplete: () => ship.destroy()
@@ -138,7 +147,6 @@ function spawnStaticCoin(x, y) {
 }
 
 function spawnEnemy(x, y) {
-    // Araña alienígena real con múltiples patas
     const spiderAscii = 
         " /\\/\\/\\ \n" +
         " (o.o)  \n" +
@@ -225,9 +233,8 @@ function destroyEnemy(bullet, enemy) {
 
 function triggeredVictory() {
     scene.physics.pause();
-    let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
 
-    // Arte ASCII en bloque para MISIÓN CUMPLIDA
     const victoryArt = 
         "  __  __ ___ ____ ___ ___  _   _    ____ _   _ __  __ ___  _     ____    _    \n" +
         " |  \\/  |_ _/ ___|_ _/ _ \\| \\ | |  / ___| | | |  \\/  | _ \\| |   |  _ \\  / \\   \n" +
@@ -247,21 +254,20 @@ function triggeredVictory() {
         fontSize: '16px',
         fill: '#ffffff'
     }).setOrigin(0.5);
+
+    scene.add.text(400, 400, 'Presiona ESPACIO para volver a jugar', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '14px',
+        fill: '#00ff41'
+    }).setOrigin(0.5);
+
+    scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
 function endGame() {
     scene.physics.pause();
-    let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85);
 
-    // Arte ASCII en bloque para MISIÓN FALLIDA
-    const defeatArt = 
-        "  __  __ ___ ____ ___ ___  _   _    💾  ___ _    _     ___ ____    _    \n" +
-        " |  \\/  |_ _/ ___|_ _/ _ \\| \\ | |   |  |_ _| |  | |   |_ _|  _ \\  / \\   \n" +
-        " | |\\/| || |\\___ \\| | | | |  \\| |   | | | || |  | |    | || | | |/ _ \\  \n" +
-        " | |  | || | ___) | | |_| | |\\  |   | | | || |__| |___ | || |_| / ___ \\ \n" +
-        " |_|  |_|___|____/___\\___/|_| \\_|   |_||___|_____|_____|___|____/_/   \\_\\";
-
-    // Versión limpia en texto ASCII puro para derrota
     const cleanDefeat = 
         " __  __ ___ ____ ___ ___  _   _      ___ _    _     ___ ____    _    \n" +
         "|  \\/  |_ _/ ___|_ _/ _ \\| \\ | |    |  _| |  | |   |_ _|  _ \\  / \\   \n" +
@@ -291,7 +297,6 @@ function update() {
         isPaused = !isPaused;
         if (isPaused) {
             scene.physics.pause();
-            // Pausar también los tweens de la cinemática de entrada si está ocurriendo
             if (introTween1) introTween1.pause();
             if (introTween2) introTween2.pause();
             if (introTween3) introTween3.pause();
@@ -299,7 +304,6 @@ function update() {
             let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75);
             pauseElements.push(bgOverlay);
 
-            // Arte ASCII en bloque exacto para "PAUSA"
             const pauseArt = 
                 "  ____   _   _ ____   ____      _    \n" +
                 " |  _ \\ / \\ | / ___| / ___|    / \\   \n" +
@@ -324,7 +328,6 @@ function update() {
 
         } else {
             scene.physics.resume();
-            // Reanudar los tweens de la intro si seguían activos
             if (introTween1) introTween1.resume();
             if (introTween2) introTween2.resume();
             if (introTween3) introTween3.resume();
@@ -335,16 +338,11 @@ function update() {
     }
 
     if (isPaused || !gameStarted) {
-        if (player && !isPaused) {
-            // Si no está pausado pero está en la intro, dejamos que actúe el tween
-        } else if (player) {
+        if (player && isPaused) {
             player.body.setVelocity(0);
         }
         if (isPaused) return;
-        if (!gameStarted) {
-            // Durante la intro dejamos correr solo los tweens
-            return;
-        }
+        if (!gameStarted) return;
     }
 
     player.body.setVelocity(0);
@@ -383,7 +381,6 @@ function update() {
         if (timer > 15) {
             let currentFrame = e.getData('frame');
             if (currentFrame === 0) {
-                // Animación de caminata de las patas de la araña
                 e.setText(" \\/\\/\\/ \n (o.o)  \n \\ \\/ / ");
                 e.setData('frame', 1);
             } else {
