@@ -2,7 +2,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: '#05050a', // Fondo muy oscuro tipo terminal de datos
     physics: { default: 'arcade' },
     scene: { create, update }
 };
@@ -19,7 +19,25 @@ function create() {
     lives = 3;
     invulnerable = false;
 
-    // 1. JUGADOR (Figura ASCII humana táctica)
+    // 1. GENERAR EL SUELO Y ENTORNO HECHO DE BITS (0 y 1)
+    // Creamos una capa de texto fija o decorativa en el fondo que simula el terreno binario
+    let bitTerrain = "";
+    for (let i = 0; i < 25; i++) {
+        let row = "";
+        for (let j = 0; j < 60; j++) {
+            row += Math.random() < 0.5 ? "0" : "1";
+        }
+        bitTerrain += row + "\n";
+    }
+
+    this.add.text(50, 50, bitTerrain, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '14px',
+        fill: '#005522', // Verde oscuro sutil para que parezca el suelo de datos
+        align: 'left'
+    }).setAlpha(0.4);
+
+    // 2. JUGADOR (Figura ASCII humana táctica)
     const playerAscii = 
         "  o  \n" +
         " [#] \n" +
@@ -53,6 +71,7 @@ function spawnCoin() {
     const x = Phaser.Math.Between(50, 750);
     const y = Phaser.Math.Between(80, 550);
     
+    // Huevo alienígena hecho de símbolos orgánicos
     const eggAscii = 
         " *Oo* \n" +
         "o@@@O\n" +
@@ -73,6 +92,7 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
+    // Enemigo guardián
     const enemyAscii = 
         "#####\n" +
         "#X#X#\n" +
@@ -127,7 +147,6 @@ function endGame() {
 function update() {
     if (lives <= 0) return;
 
-    // CORREGIDO: Usando player.body para manejar las velocidades del texto ASCII
     player.body.setVelocity(0);
     if (cursors.left.isDown) player.body.setVelocityX(-300);
     else if (cursors.right.isDown) player.body.setVelocityX(300);
