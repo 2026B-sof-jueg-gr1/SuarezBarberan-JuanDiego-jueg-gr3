@@ -9,14 +9,22 @@ const config = {
 
 new Phaser.Game(config);
 
-let scene, player, ship, beam, cursors, spaceKey, attackKey;
+let scene, player, ship, beam, cursors, spaceKey, attackKey, extractKey;
 let coins, enemies, bullets;
-let scoreText, livesText, score = 0, lives = 3, invulnerable = false;
+let scoreText, livesText, extractionText, timerText;
+let score = 0, lives = 3, invulnerable = false;
 let isPaused = false, pauseElements = [];
 let lastFired = 0;
 let gameStarted = false;
 let introTween1, introTween2, introTween3;
-let landingX = 400; // Posición X aleatoria de aterrizaje
+let landingX = 400;
+
+// Variables de recolección y extracción
+let collectingCoin = null;
+let collectTimer = 0;
+let collectDuration = 10000; // 10 segundos para tomar un huevo
+let extracting = false;
+let extractionTimer = 15000; // 15 segundos para la extracción
 
 function create() {
     scene = this;
@@ -26,8 +34,10 @@ function create() {
     invulnerable = false;
     isPaused = false;
     gameStarted = false;
+    extracting = false;
+    collectingCoin = null;
+    collectTimer = 0;
 
-    // Definir una coordenada X aleatoria para la llegada en cada partida
     landingX = Phaser.Math.Between(200, 600);
 
     coins = this.physics.add.group();
@@ -39,14 +49,11 @@ function create() {
         spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
     }
 
-    // 2. COLOCAR LAS ARAÑAS LEJOS DE LA ZONA DE APARICIÓN (landingX)
-    for (let i = 0; i < 3; i++) {
-        let enemyX = Phaser.Math.Between(50, 750);
-        // Asegurar que no aparezcan cerca del punto donde caerá el jugador
-        while (Math.abs(enemyX - landingX) < 180) {
-            enemyX = Phaser.Math.Between(50, 750);
-        }
-        spawnEnemy(enemyX, Phaser.Math.Between(100, 500));
+    // 2. COLOCAR LAS ARAÑAS EN LOS BORDES LEJANOS
+    for (let i = 0; i < 4; i++) {
+        let edgeX = Math.random() < 0.5 ? Phaser.Math.Between(20, 100) : Phaser.Math.Between(700, 780);
+        let edgeY = Math.random() < 0.5 ? Phaser.Math.Between(20, 100) : Phaser.Math.Between(450, 550);
+        spawnEnemy(edgeX, edgeY);
     }
 
     enemies.getChildren().forEach(e => e.setData('active', false));
@@ -68,7 +75,7 @@ function create() {
     player.setData('facing', 'right');
     player.setAlpha(0);
 
-    // 4. NAVE Y HAZ DE LUZ SCI-FI POSICIONADOS EN EL LANDING ALEATORIO
+    // 4. NAVE Y HAZ DE LUZ SCI-FI
     const shipAscii = 
         "   /===\\   \n" +
         "  [=====]  \n" +
@@ -83,7 +90,6 @@ function create() {
 
     beam = this.add.rectangle(landingX, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
 
-    // Animaciones de entrada
     introTween1 = scene.tweens.add({
         targets: ship,
         y: 100,
@@ -101,6 +107,9 @@ function create() {
                 onComplete: () => {
                     beam.destroy();
                     
+                    // EFECTO DE TEMBLOR DE TIERRA / CÁMARA AL TOCAR EL SUELO
+                    scene.cameras.main.shake(800, 0.015); // Tiembla 0.8s con intensidad de 1.5%
+
                     introTween3 = scene.tweens.add({
                         targets: ship,
                         y: -100,
@@ -110,6 +119,7 @@ function create() {
                         onComplete: () => ship.destroy()
                     });
 
+                    // Las arañas detectan el impacto y se activan (se verán en el minimapa avanzando desde lejos)
                     enemies.getChildren().forEach(e => e.setData('active', true));
                     gameStarted = true;
                 }
@@ -117,16 +127,18 @@ function create() {
         }
     });
 
-    scoreText = this.add.text(16, 16, 'Huevos Restantes: 10', { fontSize: '20px', fill: '#00ff41', fontFamily: 'Courier' });
-    livesText = this.add.text(16, 48, 'Salud del Traje: 3', { fontSize: '20px', fill: '#ff0055', fontFamily: 'Courier' });
+    scoreText = this.add.text(16, 16, 'Huevos: 0 / 10', { fontSize: '18px', fill: '#00ff41', fontFamily: 'Courier' });
+    livesText = this.add.text(16, 42, 'Salud: 3', { fontSize: '18px', fill: '#ff0055', fontFamily: 'Courier' });
+    extractionText = this.add.text(16, 68, '[E] Solicitar Extracción', { fontSize: '16px', fill: '#00ffff', fontFamily: 'Courier' });
+    timerText = this.add.text(16, 94, '', { fontSize: '16px', fill: '#ffaa00', fontFamily: 'Courier' });
 
-    this.physics.add.overlap(player, coins, collectCoin);
     this.physics.add.overlap(player, enemies, hitEnemy);
     this.physics.add.overlap(bullets, enemies, destroyEnemy);
 
     cursors = this.input.keyboard.createCursorKeys();
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+    extractKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 }
 
 function spawnStaticCoin(x, y) {
@@ -167,24 +179,18 @@ function spawnEnemy(x, y) {
     enemies.add(enemy);
 }
 
-function collectCoin(p, coin) {
-    if (isPaused || !gameStarted) return;
-    coin.destroy();
-    let remaining = coins.countActive(true);
-    scoreText.setText('Huevos Restantes: ' + remaining);
-
-    if (remaining === 0) {
-        triggeredVictory();
-    }
-}
-
 function hitEnemy(p, enemy) {
     if (invulnerable || isPaused || !gameStarted) return;
 
+    collectingCoin = null;
+    collectTimer = 0;
+
     lives--;
-    livesText.setText('Salud del Traje: ' + lives);
+    livesText.setText('Salud: ' + lives);
     enemy.destroy();
-    spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+    
+    let edgeX = Math.random() < 0.5 ? 30 : 750;
+    spawnEnemy(edgeX, Phaser.Math.Between(100, 500));
     enemies.getChildren().forEach(e => e.setData('active', true));
 
     if (lives <= 0) return endGame();
@@ -221,13 +227,24 @@ function shootBullet() {
 function destroyEnemy(bullet, enemy) {
     bullet.destroy();
     enemy.destroy();
-    scene.time.delayedCall(2000, () => {
+    scene.time.delayedCall(3000, () => {
         if (lives > 0) {
-            spawnEnemy(Phaser.Math.Between(50, 750), Phaser.Math.Between(100, 500));
+            let edgeX = Math.random() < 0.5 ? 30 : 750;
+            spawnEnemy(edgeX, Phaser.Math.Between(100, 500));
             enemies.getChildren().forEach(e => {
                 if (!e.getData('active')) e.setData('active', true);
             });
         }
+    });
+}
+
+function triggerExtraction() {
+    if (extracting || !gameStarted || isPaused) return;
+    extracting = true;
+    extractionText.setText('EXTRACCIÓN EN CAMINO...');
+
+    scene.time.delayedCall(extractionTimer, () => {
+        if (lives > 0) triggeredVictory();
     });
 }
 
@@ -249,7 +266,7 @@ function triggeredVictory() {
         align: 'center'
     }).setOrigin(0.5);
 
-    scene.add.text(400, 350, 'Has recolectado todos los huevos del sector.', {
+    scene.add.text(400, 350, 'Huevos extraídos: ' + score + ' / 10', {
         fontFamily: 'Courier, monospace',
         fontSize: '16px',
         fill: '#ffffff'
@@ -290,7 +307,7 @@ function endGame() {
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
-function update() {
+function update(time, delta) {
     if (lives <= 0) return;
 
     if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
@@ -338,31 +355,66 @@ function update() {
     }
 
     if (isPaused || !gameStarted) {
-        if (player && isPaused) {
-            player.body.setVelocity(0);
-        }
+        if (player && isPaused) player.body.setVelocity(0);
         if (isPaused) return;
         if (!gameStarted) return;
     }
 
-    player.body.setVelocity(0);
-    if (cursors.left.isDown) {
-        player.body.setVelocityX(-300);
-        player.setData('facing', 'left');
-    } else if (cursors.right.isDown) {
-        player.body.setVelocityX(300);
-        player.setData('facing', 'right');
+    if (Phaser.Input.Keyboard.JustDown(extractKey)) {
+        triggerExtraction();
     }
 
-    if (cursors.up.isDown) player.body.setVelocityY(-300);
-    else if (cursors.down.isDown) player.body.setVelocityY(300);
+    if (extracting) {
+        let timeLeft = Math.ceil((extractionTimer - scene.time.now) / 1000);
+        if (timeLeft < 0) timeLeft = 0;
+        timerText.setText('Extracción en: ' + timeLeft + 's');
+    }
+
+    player.body.setVelocity(0);
+    
+    // Mecánica de recolección de 10 segundos
+    if (collectingCoin) {
+        collectTimer += delta;
+        let progress = Math.floor((collectTimer / collectDuration) * 100);
+        timerText.setText('Recolectando: ' + progress + '%');
+
+        if (Phaser.Math.Distance.Between(player.x, player.y, collectingCoin.x, collectingCoin.y) > 50) {
+            collectingCoin = null;
+            collectTimer = 0;
+            timerText.setText('');
+        } else if (collectTimer >= collectDuration) {
+            collectingCoin.destroy();
+            collectingCoin = null;
+            collectTimer = 0;
+            score++;
+            scoreText.setText('Huevos: ' + score + ' / 10');
+            timerText.setText('');
+        }
+    } else {
+        if (cursors.left.isDown) {
+            player.body.setVelocityX(-300);
+            player.setData('facing', 'left');
+        } else if (cursors.right.isDown) {
+            player.body.setVelocityX(300);
+            player.setData('facing', 'right');
+        }
+
+        if (cursors.up.isDown) player.body.setVelocityY(-300);
+        else if (cursors.down.isDown) player.body.setVelocityY(300);
+
+        coins.getChildren().forEach(coin => {
+            if (coin.active && Phaser.Math.Distance.Between(player.x, player.y, coin.x, coin.y) < 40) {
+                collectingCoin = coin;
+                collectTimer = 0;
+            }
+        });
+    }
 
     if (Phaser.Input.Keyboard.JustDown(attackKey)) {
         shootBullet();
     }
 
     const speed = 100;
-
     player.setDepth(player.y);
 
     enemies.getChildren().forEach(e => {
@@ -398,4 +450,51 @@ function update() {
         let coinScale = Phaser.Math.Clamp(coin.y / 450, 0.8, 1.2);
         coin.setScale(coinScale);
     });
+
+    drawMinimap();
+}
+
+function drawMinimap() {
+    if (scene.minimapContainer) {
+        scene.minimapContainer.destroy();
+    }
+
+    let mapX = 620;
+    let mapY = 440;
+    let mapW = 160;
+    let mapH = 140;
+
+    scene.minimapContainer = scene.add.group();
+
+    let bg = scene.add.rectangle(mapX + mapW/2, mapY + mapH/2, mapW, mapH, 0x000000, 0.8)
+        .setStrokeStyle(2, 0x00ff41);
+    scene.minimapContainer.add(bg);
+
+    let label = scene.add.text(mapX + 8, mapY + 6, 'RADAR', { fontSize: '10px', fill: '#00ff41', fontFamily: 'Courier' });
+    scene.minimapContainer.add(label);
+
+    function scaleX(x) { return mapX + (x / 800) * mapW; }
+    function scaleY(y) { return mapY + 20 + (y / 600) * (mapH - 25); }
+
+    // Dibujar huevos
+    coins.getChildren().forEach(coin => {
+        if (coin.active) {
+            let dot = scene.add.rectangle(scaleX(coin.x), scaleY(coin.y), 3, 3, 0xff0055);
+            scene.minimapContainer.add(dot);
+        }
+    });
+
+    // Dibujar enemigos (se verá en el minimapa cómo avanzan desde los bordes hacia el centro)
+    enemies.getChildren().forEach(e => {
+        if (e.active) {
+            let dot = scene.add.rectangle(scaleX(e.x), scaleY(e.y), 3, 3, 0xffaa00);
+            scene.minimapContainer.add(dot);
+        }
+    });
+
+    // Dibujar jugador
+    if (player && player.alpha > 0) {
+        let pDot = scene.add.rectangle(scaleX(player.x), scaleY(player.y), 4, 4, 0x00ff41);
+        scene.minimapContainer.add(pDot);
+    }
 }
