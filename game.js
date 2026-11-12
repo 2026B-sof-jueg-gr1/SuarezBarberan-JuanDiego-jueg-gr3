@@ -2,7 +2,7 @@ const config = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#05050a', // Fondo muy oscuro tipo terminal de datos
+    backgroundColor: '#05050a', // Fondo espacial oscuro tipo terminal
     physics: { default: 'arcade' },
     scene: { create, update }
 };
@@ -19,23 +19,54 @@ function create() {
     lives = 3;
     invulnerable = false;
 
-    // 1. GENERAR EL SUELO Y ENTORNO HECHO DE BITS (0 y 1)
-    // Creamos una capa de texto fija o decorativa en el fondo que simula el terreno binario
-    let bitTerrain = "";
-    for (let i = 0; i < 25; i++) {
-        let row = "";
-        for (let j = 0; j < 60; j++) {
-            row += Math.random() < 0.5 ? "0" : "1";
+    // 1. GENERAR EL TERRENO DEL PLANETA (0s como suelo plomo y 1s como hierbas altas)
+    const cols = 55;
+    const rows = 22;
+    let groundGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
+    let grassGrid = Array(rows).fill().map(() => Array(cols).fill(" "));
+
+    // Llenar la base con ceros ('0') representando el suelo firme
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (r >= rows - 5) {
+                groundGrid[r][c] = "0"; // Suelo base abajo
+            } else if (Math.random() < 0.12) {
+                groundGrid[r][c] = "0"; // Rocas o parches de suelo salpicados
+            }
         }
-        bitTerrain += row + "\n";
     }
 
-    this.add.text(50, 50, bitTerrain, {
+    // Crear hierbas ('1') mucho más largas y de diferentes tamaños
+    for (let c = 0; c < cols; c += 2) {
+        if (Math.random() < 0.75) {
+            let height = Phaser.Math.Between(3, 9); // Alturas variables para las hierbas
+            let startRow = rows - 5 - height + Phaser.Math.Between(0, 2);
+            for (let h = 0; h < height; h++) {
+                let currentRow = startRow + h;
+                if (currentRow >= 0 && currentRow < rows) {
+                    grassGrid[currentRow][c] = "1";
+                }
+            }
+        }
+    }
+
+    // Convertir las matrices a cadenas de texto
+    let groundText = groundGrid.map(row => row.join("")).join("\n");
+    let grassText = grassGrid.map(row => row.join("")).join("\n");
+
+    // Renderizar el suelo plomo ('0')
+    this.add.text(40, 120, groundText, {
         fontFamily: 'Courier, monospace',
-        fontSize: '14px',
-        fill: '#005522', // Verde oscuro sutil para que parezca el suelo de datos
-        align: 'left'
-    }).setAlpha(0.4);
+        fontSize: '15px',
+        fill: '#7f8c8d' // Gris / Plomo elegante
+    });
+
+    // Renderizar las hierbas verdes oscuras y altas ('1') justo encima
+    this.add.text(40, 120, grassText, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '15px',
+        fill: '#1e8449' // Verde oscuro / bosque profundo
+    });
 
     // 2. JUGADOR (Figura ASCII humana táctica)
     const playerAscii = 
@@ -71,7 +102,7 @@ function spawnCoin() {
     const x = Phaser.Math.Between(50, 750);
     const y = Phaser.Math.Between(80, 550);
     
-    // Huevo alienígena hecho de símbolos orgánicos
+    // Huevo alienígena orgánico en ASCII
     const eggAscii = 
         " *Oo* \n" +
         "o@@@O\n" +
@@ -92,7 +123,7 @@ function spawnEnemy() {
     const x = Math.random() < 0.5 ? 30 : 770;
     const y = Phaser.Math.Between(50, 550);
     
-    // Enemigo guardián
+    // Enemigo guardián en ASCII
     const enemyAscii = 
         "#####\n" +
         "#X#X#\n" +
