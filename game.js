@@ -1,3 +1,15 @@
+// ───────── Constantes del mundo ─────────
+// El planeta es más grande que la pantalla: la cámara sigue al jugador y el radar muestra todo.
+const WORLD_W = 2000;
+const WORLD_H = 1500;
+const MAX_ENEMIES = 28;
+
+const FACE_HAPPY = " ,-^-, \n |^_^| \n '---' ";
+const FACE_DEADPAN = " ,-^-, \n |-_-| \n '---' ";
+
+const SPIDER_PAL = { leg: 0x4a2010, accent: 0xffaa00, joint: 0xffcc33, body: 0x1c0a14, head: 0x2a1020, eye: 0xffe066, extraEyes: false };
+const MOTHER_PAL = { leg: 0x3a0a14, accent: 0xff2244, joint: 0xff6677, body: 0x120208, head: 0x1e0410, eye: 0xff1111, extraEyes: true };
+
 const config = {
     type: Phaser.AUTO,
     width: 800,
@@ -17,7 +29,9 @@ let isPaused = false, pauseElements = [];
 let lastFired = 0;
 let gameStarted = false;
 let introTween1, introTween2, introTween3;
-let landingX = 400;
+let landingX = 1000, landingY = 800;
+let ambientOverlay = null;
+let nests = [];
 
 // Variables de minijuego de corte (Among Us style)
 let cuttingActive = false;
@@ -42,8 +56,12 @@ let corporateHelpActive = false;
 let commsElements = [];
 let commsTyper = null;
 let commsHold = null;
-const FACE_HAPPY = " ,-^-, \n |^_^| \n '---' ";
-const FACE_DEADPAN = " ,-^-, \n |-_-| \n '---' ";
+
+// Madre de las arañas
+let motherActive = false;
+let mother = null, motherGlow = null;
+let motherFrame = 0;
+let motherAnimEvent = null, motherWaveTimer = null;
 
 function create() {
     scene = this;
@@ -68,35 +86,48 @@ function create() {
     commsElements = [];
     commsTyper = null;
     commsHold = null;
+    motherActive = false;
+    mother = null;
+    motherGlow = null;
+    motherFrame = 0;
+    motherAnimEvent = null;
+    motherWaveTimer = null;
+    nests = [];
 
-    landingX = Phaser.Math.Between(250, 550);
+    // mundo y cámara
+    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
+    const cam = this.cameras.main;
+    cam.setBounds(0, 0, WORLD_W, WORLD_H);
 
-    let ambientRedOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.12);
-    ambientRedOverlay.setDepth(9999);
+    landingX = Phaser.Math.Between(Math.round(WORLD_W * 0.3), Math.round(WORLD_W * 0.7));
+    landingY = Phaser.Math.Between(Math.round(WORLD_H * 0.4), Math.round(WORLD_H * 0.7));
+    cam.centerOn(landingX, landingY - 50);
 
+    ambientOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.12).setScrollFactor(0).setDepth(9999);
+
+    nests = buildNests();
     drawGround();
     ensureSpiderTextures();
+    ensureEggTextures();
 
-    coins = this.physics.add.group();
+    coins = this.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
 
+    // huevos agrupados en nidos repartidos por el planeta
+    nests.forEach(n => {
+        for (let i = 0; i < n.eggs; i++) {
+            const a = (i / n.eggs) * Math.PI * 2 + Math.random();
+            const r = Phaser.Math.Between(35, 80);
+            spawnStaticCoin(n.x + Math.cos(a) * r, n.y + Math.sin(a) * r * 0.7);
+        }
+    });
+
+    // las arañas andan por todo el planeta, lejos de donde aterrizas (quietas hasta que aterrizas)
     for (let i = 0; i < 10; i++) {
-        spawnStaticCoin(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500));
+        const p = farWorldPoint(700, landingX, landingY);
+        spawnEnemy(p.x, p.y);
     }
-
-    // Las arañas ya están en el planeta desde el segundo cero (quietas hasta que aterrizas)
-    for (let i = 0; i < 6; i++) {
-        let sx, sy;
-        do {
-            sx = Phaser.Math.Between(70, 730);
-            sy = Phaser.Math.Between(150, 540);
-        } while (Phaser.Math.Distance.Between(sx, sy, landingX, 350) < 200);
-
-        let enemy = spawnEnemy(sx, sy);
-        enemy.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
-    }
-
     enemies.getChildren().forEach(e => e.setData('active', false));
 
     const playerAscii = 
@@ -104,7 +135,7 @@ function create() {
         " [#] \n" +
         " / \\ ";
     
-    player = this.add.text(landingX, 50, playerAscii, {
+    player = this.add.text(landingX, landingY - 300, playerAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
         fill: '#00ff41'
@@ -120,27 +151,27 @@ function create() {
         "  [=====]  \n" +
         "== O O O == ";
 
-    ship = this.add.text(landingX, -50, shipAscii, {
+    ship = this.add.text(landingX, landingY - 400, shipAscii, {
         fontFamily: 'Courier, monospace',
         fontSize: '16px',
         fill: '#00ffff',
         align: 'center'
     }).setOrigin(0.5);
 
-    beam = this.add.rectangle(landingX, 150, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
+    beam = this.add.rectangle(landingX, landingY - 200, 60, 300, 0x00ffff, 0.25).setOrigin(0.5, 0);
 
     introTween1 = scene.tweens.add({
         targets: ship,
-        y: 100,
+        y: landingY - 250,
         duration: 2000,
         ease: 'Power2',
         onComplete: () => {
-            player.setPosition(landingX - 10, 120);
+            player.setPosition(landingX - 10, landingY - 230);
             player.setAlpha(1);
 
             introTween2 = scene.tweens.add({
                 targets: player,
-                y: 350,
+                y: landingY,
                 duration: 1500,
                 ease: 'Linear',
                 onComplete: () => {
@@ -149,7 +180,7 @@ function create() {
 
                     introTween3 = scene.tweens.add({
                         targets: ship,
-                        y: -100,
+                        y: landingY - 450,
                         x: landingX + 500,
                         duration: 1500,
                         ease: 'Power2',
@@ -158,15 +189,19 @@ function create() {
 
                     enemies.getChildren().forEach(e => e.setData('active', true));
                     gameStarted = true;
+
+                    // la cámara empieza a seguir al jugador
+                    scene.cameras.main.startFollow(player, true, 0.08, 0.08, -27, -31);
                 }
             });
         }
     });
 
-    scoreText = this.add.text(16, 16, 'Huevos: 0 / 10', { fontSize: '18px', fill: '#ff4d79', fontFamily: 'Courier' });
-    livesText = this.add.text(16, 42, 'Salud: 3', { fontSize: '18px', fill: '#ff0055', fontFamily: 'Courier' });
-    extractionText = this.add.text(16, 68, '[E] Solicitar Extracción', { fontSize: '16px', fill: '#00ffff', fontFamily: 'Courier' });
-    timerText = this.add.text(16, 94, '', { fontSize: '16px', fill: '#ffaa00', fontFamily: 'Courier' });
+    const hudStyle = { fontFamily: 'Courier', stroke: '#12030a', strokeThickness: 3 };
+    scoreText = this.add.text(16, 16, 'Huevos: 0 / 10', { ...hudStyle, fontSize: '18px', fill: '#ff4d79' }).setScrollFactor(0).setDepth(6000);
+    livesText = this.add.text(16, 42, 'Salud: 3', { ...hudStyle, fontSize: '18px', fill: '#ff0055' }).setScrollFactor(0).setDepth(6000);
+    extractionText = this.add.text(16, 68, '[E] Solicitar Extracción', { ...hudStyle, fontSize: '16px', fill: '#00ffff' }).setScrollFactor(0).setDepth(6000);
+    timerText = this.add.text(16, 94, '', { ...hudStyle, fontSize: '16px', fill: '#ffaa00' }).setScrollFactor(0).setDepth(6000);
 
     createMinimap();
 
@@ -194,11 +229,83 @@ function create() {
     });
 }
 
+// ───────────────────────── UTILIDADES DEL MUNDO ─────────────────────────
+function depthScaleFor(y) {
+    return Phaser.Math.Clamp(0.75 + (y / WORLD_H) * 0.5, 0.75, 1.25);
+}
+
+function farWorldPoint(minDist, refX, refY) {
+    let x, y, tries = 0;
+    do {
+        x = Phaser.Math.Between(60, WORLD_W - 60);
+        y = Phaser.Math.Between(60, WORLD_H - 60);
+        tries++;
+    } while (Phaser.Math.Distance.Between(x, y, refX, refY) < minDist && tries < 40);
+    return { x, y };
+}
+
+function offscreenSpawnPoint() {
+    const v = scene.cameras.main.worldView;
+    const m = 120;
+    const side = Phaser.Math.Between(0, 3);
+    if (side === 0) return { x: v.left - m, y: Phaser.Math.Between(v.top, v.bottom) };
+    if (side === 1) return { x: v.right + m, y: Phaser.Math.Between(v.top, v.bottom) };
+    if (side === 2) return { x: Phaser.Math.Between(v.left, v.right), y: v.top - m };
+    return { x: Phaser.Math.Between(v.left, v.right), y: v.bottom + m };
+}
+
+// Si ya hay alerta, los reemplazos entran por el borde de la pantalla; si no, aparecen lejos.
+function respawnPoint() {
+    if (playerAlerted) return offscreenSpawnPoint();
+    const pc = player.body.center;
+    return farWorldPoint(900, pc.x, pc.y);
+}
+
+function buildNests() {
+    const result = [];
+    const margin = 150;
+    const rnd = Phaser.Math.Between;
+    const dist2 = Phaser.Math.Distance.Between;
+
+    // el primer nido queda cerca del aterrizaje para que arranques con huevos a la vista
+    const ang = Math.random() * Math.PI * 2;
+    const d = rnd(280, 420);
+    result.push({
+        x: Phaser.Math.Clamp(landingX + Math.cos(ang) * d, margin, WORLD_W - margin),
+        y: Phaser.Math.Clamp(landingY + Math.sin(ang) * d, margin, WORLD_H - margin),
+        eggs: 3
+    });
+
+    [3, 2, 2].forEach(n => {
+        let x, y, ok, tries = 0;
+        do {
+            x = rnd(margin, WORLD_W - margin);
+            y = rnd(margin, WORLD_H - margin);
+            ok = dist2(x, y, landingX, landingY) > 500 && result.every(r => dist2(x, y, r.x, r.y) > 450);
+            tries++;
+        } while (!ok && tries < 60);
+        result.push({ x, y, eggs: n });
+    });
+
+    return result;
+}
+
 // ───────────────────────── SUELO ─────────────────────────
 // Se dibuja una sola vez y se convierte en textura (no pesa en cada frame).
 // Cada partida genera un planeta distinto.
+function drawRock(g, rx, ry, rw) {
+    const rh = Math.round(rw * 0.6);
+    g.fillStyle(0x0d0306, 0.5);
+    g.fillEllipse(rx + 2, ry + rh * 0.45, rw + 4, rh * 0.6);
+    g.fillStyle([0x3a1624, 0x4a2030, 0x2e1019][Math.floor(Math.random() * 3)], 1);
+    g.fillEllipse(rx, ry, rw, rh);
+    g.fillStyle(0x7a3a52, 0.55);
+    g.fillEllipse(rx - rw * 0.15, ry - rh * 0.2, rw * 0.5, rh * 0.4);
+}
+
 function drawGround() {
-    const W = 800, H = 600;
+    const W = WORLD_W, H = WORLD_H;
+    const A = (W * H) / (800 * 600);
     const rnd = Phaser.Math.Between;
     const pick = arr => arr[Math.floor(Math.random() * arr.length)];
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
@@ -209,14 +316,30 @@ function drawGround() {
 
     // manchas de tierra más clara y más oscura
     const patchColors = [0x34101b, 0x240912, 0x3d1522, 0x1e0710, 0x40192a];
-    for (let i = 0; i < 55; i++) {
+    for (let i = 0; i < Math.round(55 * A); i++) {
         g.fillStyle(pick(patchColors), 0.5);
         g.fillEllipse(rnd(0, W), rnd(0, H), rnd(90, 260), rnd(40, 130));
     }
 
+    // nidos: tierra removida, anillo de piedras y baba
+    nests.forEach(n => {
+        g.fillStyle(0x14050b, 0.55);
+        g.fillEllipse(n.x, n.y + 6, 300, 170);
+        g.fillStyle(0x240912, 0.7);
+        g.fillEllipse(n.x, n.y + 4, 230, 130);
+        g.lineStyle(2, 0x5a2236, 0.5);
+        g.strokeEllipse(n.x, n.y + 6, 300, 170);
+        g.fillStyle(0xff4d79, 0.05);
+        g.fillEllipse(n.x, n.y, 180, 100);
+        for (let i = 0; i < 12; i++) {
+            const a = Math.random() * Math.PI * 2;
+            drawRock(g, n.x + Math.cos(a) * 150, n.y + Math.sin(a) * 85, rnd(8, 18));
+        }
+    });
+
     // cráteres
-    for (let i = 0; i < 6; i++) {
-        const cx = rnd(60, W - 60), cy = rnd(150, H - 50);
+    for (let i = 0; i < Math.round(6 * A); i++) {
+        const cx = rnd(60, W - 60), cy = rnd(60, H - 50);
         const cw = rnd(40, 90), ch = Math.round(cw * 0.45);
         g.fillStyle(0x14050b, 0.7);
         g.fillEllipse(cx, cy, cw, ch);
@@ -225,8 +348,8 @@ function drawGround() {
     }
 
     // grietas
-    for (let i = 0; i < 16; i++) {
-        let px = rnd(0, W), py = rnd(110, H);
+    for (let i = 0; i < Math.round(16 * A); i++) {
+        let px = rnd(0, W), py = rnd(0, H);
         let ang = Math.random() * Math.PI * 2;
         const segs = rnd(4, 8);
         for (let s = 0; s < segs; s++) {
@@ -245,28 +368,21 @@ function drawGround() {
 
     // grano / arenilla
     const grit = [0x4a1a2b, 0x5e2438, 0x1a060c, 0x3a1624];
-    for (let i = 0; i < 900; i++) {
+    for (let i = 0; i < Math.round(600 * A); i++) {
         g.fillStyle(pick(grit), 0.45 + Math.random() * 0.4);
         const s = Math.random() < 0.8 ? 1 : 2;
         g.fillRect(rnd(0, W), rnd(0, H), s, s);
     }
 
     // rocas con sombra y brillo
-    for (let i = 0; i < 30; i++) {
-        const rx = rnd(10, W - 10), ry = rnd(110, H - 10);
-        const rw = rnd(6, 20), rh = Math.round(rw * 0.6);
-        g.fillStyle(0x0d0306, 0.5);
-        g.fillEllipse(rx + 2, ry + rh * 0.45, rw + 4, rh * 0.6);
-        g.fillStyle(pick([0x3a1624, 0x4a2030, 0x2e1019]), 1);
-        g.fillEllipse(rx, ry, rw, rh);
-        g.fillStyle(0x7a3a52, 0.55);
-        g.fillEllipse(rx - rw * 0.15, ry - rh * 0.2, rw * 0.5, rh * 0.4);
+    for (let i = 0; i < Math.round(30 * A); i++) {
+        drawRock(g, rnd(10, W - 10), rnd(10, H - 10), rnd(6, 20));
     }
 
     // mechones de pasto alienígena (más abajo = más cerca = más grande)
     const bladeColors = [0xff4d79, 0xd63a68, 0x9c2a4d, 0xff7aa0];
-    for (let i = 0; i < 110; i++) {
-        const tx = rnd(10, W - 10), ty = rnd(110, H - 6);
+    for (let i = 0; i < Math.round(110 * A); i++) {
+        const tx = rnd(10, W - 10), ty = rnd(10, H - 6);
         const k = 0.55 + (ty / H) * 0.7;
         const blades = rnd(3, 6);
         g.fillStyle(0x0d0306, 0.35);
@@ -281,26 +397,21 @@ function drawGround() {
     }
 
     // esporas luminosas
-    for (let i = 0; i < 30; i++) {
-        const sx = rnd(10, W - 10), sy = rnd(110, H - 10);
+    for (let i = 0; i < Math.round(30 * A); i++) {
+        const sx = rnd(10, W - 10), sy = rnd(10, H - 10);
         g.fillStyle(0xff4d79, 0.12);
         g.fillCircle(sx, sy, 5);
         g.fillStyle(0xff9ab5, 0.7);
         g.fillCircle(sx, sy, 1.2);
     }
 
-    // niebla en el horizonte (ayuda a leer el HUD)
-    for (let i = 0; i < 10; i++) {
-        g.fillStyle(0x12030a, 0.55 * (1 - i / 10));
-        g.fillRect(0, i * 13, W, 13);
-    }
-
-    // viñeta en los bordes
-    for (let k = 0; k < 8; k++) {
-        const t = 18 * (k + 1);
-        g.fillStyle(0x0a0206, 0.05);
+    // viñeta: el borde del planeta se oscurece
+    for (let k = 0; k < 10; k++) {
+        const t = 26 * (k + 1);
+        g.fillStyle(0x0a0206, 0.06);
         g.fillRect(0, 0, t, H);
         g.fillRect(W - t, 0, t, H);
+        g.fillRect(0, 0, W, t);
         g.fillRect(0, H - t, W, t);
     }
 
@@ -313,10 +424,11 @@ function drawGround() {
 
 // ───────────────────────── ARAÑAS ─────────────────────────
 // Dos frames de caminata dibujados una vez (patas alternadas).
-function ensureSpiderTextures() {
-    if (scene.textures.exists('spider0')) return;
-
-    const W = 56, H = 48;
+// s = escala de dibujo (la madre se dibuja a 4x para que no se vea borrosa).
+function buildSpiderTexture(key, frame, s, pal) {
+    const W = 56 * s, H = 48 * s;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const sign = frame === 0 ? 1 : -1;
     const legs = [
         { s: [24, 15], k: [12, 5],  f: [4, 11] },
         { s: [23, 18], k: [9, 14],  f: [2, 22] },
@@ -324,96 +436,192 @@ function ensureSpiderTextures() {
         { s: [24, 24], k: [12, 33], f: [7, 41] }
     ];
 
-    [0, 1].forEach(frame => {
-        const g = scene.make.graphics({ x: 0, y: 0, add: false });
-        const sign = frame === 0 ? 1 : -1;
+    // sombra
+    g.fillStyle(0x000000, 0.4);
+    g.fillEllipse(30 * s, 30 * s, 32 * s, 22 * s);
 
-        // sombra
-        g.fillStyle(0x000000, 0.4);
-        g.fillEllipse(30, 30, 32, 22);
+    // patas (izquierda y derecha en espejo, andar alternado)
+    legs.forEach((leg, i) => {
+        [-1, 1].forEach(side => {
+            const shift = (i % 2 === 0 ? 1 : -1) * side * sign * 2;
+            const mx = v => (side === -1 ? v : 56 - v) * s;
+            const sx = mx(leg.s[0]), sy = leg.s[1] * s;
+            const kx = mx(leg.k[0]), ky = (leg.k[1] + shift) * s;
+            const fx = mx(leg.f[0]), fy = (leg.f[1] + shift * 1.5) * s;
 
-        // patas (izquierda y derecha en espejo, andar alternado)
-        legs.forEach((leg, i) => {
-            [-1, 1].forEach(side => {
-                const shift = (i % 2 === 0 ? 1 : -1) * side * sign * 2;
-                const mx = v => (side === -1 ? v : W - v);
-                const sx = mx(leg.s[0]), sy = leg.s[1];
-                const kx = mx(leg.k[0]), ky = leg.k[1] + shift;
-                const fx = mx(leg.f[0]), fy = leg.f[1] + shift * 1.5;
-
-                g.lineStyle(3, 0x4a2010, 1);
-                g.lineBetween(sx, sy, kx, ky);
-                g.lineBetween(kx, ky, fx, fy);
-                g.lineStyle(1, 0xffaa00, 0.85);
-                g.lineBetween(sx, sy, kx, ky);
-                g.lineBetween(kx, ky, fx, fy);
-                g.fillStyle(0xffcc33, 1);
-                g.fillCircle(kx, ky, 1.5);
-            });
+            g.lineStyle(3 * s, pal.leg, 1);
+            g.lineBetween(sx, sy, kx, ky);
+            g.lineBetween(kx, ky, fx, fy);
+            g.lineStyle(Math.max(1, s), pal.accent, 0.85);
+            g.lineBetween(sx, sy, kx, ky);
+            g.lineBetween(kx, ky, fx, fy);
+            g.fillStyle(pal.joint, 1);
+            g.fillCircle(kx, ky, 1.5 * s);
         });
-
-        // abdomen
-        g.fillStyle(0x1c0a14, 1);
-        g.fillEllipse(28, 29, 20, 24);
-        g.lineStyle(1.5, 0xffaa00, 0.9);
-        g.strokeEllipse(28, 29, 20, 24);
-        g.fillStyle(0xffaa00, 0.95);
-        g.fillTriangle(28, 24, 25, 29, 31, 29);
-        g.fillTriangle(28, 35, 25, 29, 31, 29);
-
-        // cefalotórax
-        g.fillStyle(0x2a1020, 1);
-        g.fillEllipse(28, 15, 13, 13);
-        g.lineStyle(1.5, 0xffaa00, 0.9);
-        g.strokeEllipse(28, 15, 13, 13);
-
-        // colmillos
-        g.fillStyle(0xffaa00, 1);
-        g.fillTriangle(25, 9, 27.5, 9, 26, 4);
-        g.fillTriangle(31, 9, 28.5, 9, 30, 4);
-
-        // ojos
-        g.fillStyle(0xffe066, 1);
-        g.fillCircle(25.5, 13, 1.8);
-        g.fillCircle(30.5, 13, 1.8);
-        g.fillCircle(27, 16.5, 1.1);
-        g.fillCircle(29, 16.5, 1.1);
-
-        g.generateTexture('spider' + frame, W, H);
-        g.destroy();
     });
+
+    // abdomen
+    g.fillStyle(pal.body, 1);
+    g.fillEllipse(28 * s, 29 * s, 20 * s, 24 * s);
+    g.lineStyle(1.5 * s, pal.accent, 0.9);
+    g.strokeEllipse(28 * s, 29 * s, 20 * s, 24 * s);
+    g.fillStyle(pal.accent, 0.95);
+    g.fillTriangle(28 * s, 24 * s, 25 * s, 29 * s, 31 * s, 29 * s);
+    g.fillTriangle(28 * s, 35 * s, 25 * s, 29 * s, 31 * s, 29 * s);
+
+    // cefalotórax
+    g.fillStyle(pal.head, 1);
+    g.fillEllipse(28 * s, 15 * s, 13 * s, 13 * s);
+    g.lineStyle(1.5 * s, pal.accent, 0.9);
+    g.strokeEllipse(28 * s, 15 * s, 13 * s, 13 * s);
+
+    // colmillos
+    g.fillStyle(pal.accent, 1);
+    g.fillTriangle(25 * s, 9 * s, 27.5 * s, 9 * s, 26 * s, 4 * s);
+    g.fillTriangle(31 * s, 9 * s, 28.5 * s, 9 * s, 30 * s, 4 * s);
+
+    // ojos
+    g.fillStyle(pal.eye, 1);
+    g.fillCircle(25.5 * s, 13 * s, 1.8 * s);
+    g.fillCircle(30.5 * s, 13 * s, 1.8 * s);
+    g.fillCircle(27 * s, 16.5 * s, 1.1 * s);
+    g.fillCircle(29 * s, 16.5 * s, 1.1 * s);
+    if (pal.extraEyes) {
+        g.fillCircle(23.8 * s, 15 * s, 1.2 * s);
+        g.fillCircle(32.2 * s, 15 * s, 1.2 * s);
+        g.fillCircle(28 * s, 11.2 * s, 1.2 * s);
+    }
+
+    g.generateTexture(key, W, H);
+    g.destroy();
+}
+
+function ensureSpiderTextures() {
+    if (scene.textures.exists('spider0')) return;
+
+    [0, 1].forEach(f => {
+        buildSpiderTexture('spider' + f, f, 1, SPIDER_PAL);
+        buildSpiderTexture('mother' + f, f, 4, MOTHER_PAL);
+    });
+
+    // resplandor rojo detrás de la madre
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    for (let i = 0; i < 12; i++) {
+        g.fillStyle(0xff1133, 0.05);
+        g.fillEllipse(250, 160, 500 - i * 36, 320 - i * 24);
+    }
+    g.generateTexture('motherGlow', 500, 320);
+    g.destroy();
+}
+
+// ───────────────────────── HUEVOS ─────────────────────────
+// Un saco de huevos de araña: baba con hilos en la base, huevitos atrás y
+// un huevo brillante con la arañita dentro.
+function drawEggSac(g, cx, cy, w, h, embryo) {
+    g.fillStyle(0x3a0614, 1);
+    g.fillEllipse(cx, cy, w, h);
+    g.fillStyle(0x8a1230, 1);
+    g.fillEllipse(cx, cy, w - 3, h - 3);
+    g.fillStyle(0xc41f4a, 1);
+    g.fillEllipse(cx, cy + h * 0.03, w - 8, h - 9);
+    g.fillStyle(0xff4d79, 0.55);
+    g.fillEllipse(cx, cy + h * 0.07, w - 14, h - 17);
+
+    if (embryo) {
+        const u = w / 30;
+        g.lineStyle(1, 0x2a0a18, 0.9);
+        for (let i = -1; i <= 1; i++) {
+            g.lineBetween(cx - 2 * u, cy + (3 + i * 3) * u, cx - 7 * u, cy + (1 + i * 4) * u);
+            g.lineBetween(cx + 2 * u, cy + (3 + i * 3) * u, cx + 7 * u, cy + (1 + i * 4) * u);
+        }
+        g.fillStyle(0x2a0a18, 0.95);
+        g.fillEllipse(cx, cy + 4 * u, w * 0.3, h * 0.26);
+        g.fillEllipse(cx, cy - 4 * u, w * 0.2, h * 0.14);
+        g.fillStyle(0xffaa00, 1);
+        g.fillCircle(cx - 1.5 * u, cy - 4.5 * u, 0.9 * u);
+        g.fillCircle(cx + 1.5 * u, cy - 4.5 * u, 0.9 * u);
+    }
+
+    // brillo
+    g.fillStyle(0xffd6e0, 0.7);
+    g.fillEllipse(cx - w * 0.18, cy - h * 0.24, w * 0.2, h * 0.16);
+    g.fillStyle(0xffffff, 0.6);
+    g.fillCircle(cx - w * 0.2, cy - h * 0.28, 1.1);
+
+    g.lineStyle(1, 0xff8aa8, 0.45);
+    g.strokeEllipse(cx, cy, w - 1, h - 1);
+}
+
+function ensureEggTextures() {
+    if (!scene.textures.exists('egg')) {
+        const g = scene.make.graphics({ x: 0, y: 0, add: false });
+
+        // baba y telaraña en la base
+        g.fillStyle(0x2a0712, 0.7);
+        g.fillEllipse(40, 68, 70, 17);
+        g.lineStyle(1, 0xffb0c8, 0.3);
+        g.strokeEllipse(40, 68, 72, 18);
+        g.lineStyle(1, 0xffc0d0, 0.35);
+        [[10, 70], [70, 71], [22, 77], [58, 78], [4, 65], [76, 65]].forEach(p => g.lineBetween(40, 63, p[0], p[1]));
+
+        // huevitos de atrás y huevo principal
+        drawEggSac(g, 21, 57, 20, 25, false);
+        drawEggSac(g, 59, 58, 18, 23, false);
+        drawEggSac(g, 40, 42, 38, 48, true);
+
+        g.generateTexture('egg', 80, 80);
+        g.destroy();
+    }
+
+    if (!scene.textures.exists('eggGlow')) {
+        const g = scene.make.graphics({ x: 0, y: 0, add: false });
+        for (let r = 56; r > 6; r -= 5) {
+            g.fillStyle(0xff3366, 0.04);
+            g.fillCircle(60, 60, r);
+        }
+        g.generateTexture('eggGlow', 120, 120);
+        g.destroy();
+    }
 }
 
 function spawnStaticCoin(x, y) {
-    const redEggAscii = 
-        "  /\\  \n" +
-        " <##> \n" +
-        "  \\/  ";
+    const k = depthScaleFor(y);
 
-    let coin = scene.add.text(x, y, redEggAscii, {
-        fontFamily: 'Courier, monospace',
-        fontSize: '15px',
-        fill: '#ff1a40'
+    const glow = scene.add.image(x, y + 4, 'eggGlow')
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(y - 1).setScale(k).setAlpha(0.5);
+    scene.tweens.add({
+        targets: glow,
+        alpha: 0.95,
+        duration: Phaser.Math.Between(700, 1100),
+        delay: Phaser.Math.Between(0, 600),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
     });
-    
-    scene.physics.add.existing(coin);
-    coin.body.setSize(30, 35);
-    coin.setDepth(y);
-    coin.setScale(Phaser.Math.Clamp(y / 450, 0.8, 1.2));
+
+    const coin = scene.add.image(x, y, 'egg').setDepth(y).setScale(k);
+    coin.setData('glow', glow);
     coins.add(coin);
 }
 
-function spawnEnemy(x, y) {
+function spawnEnemy(x, y, sizeMul = 1) {
     let enemy = scene.add.sprite(x, y, 'spider0');
 
     scene.physics.add.existing(enemy);
     enemy.body.setSize(34, 30);
     enemy.setDepth(y);
-    enemy.setScale(Phaser.Math.Clamp(y / 450, 0.7, 1.3));
+    enemy.setScale(depthScaleFor(y) * sizeMul);
+    enemy.setData('sizeMul', sizeMul);
     enemy.setData('animTimer', 0);
     enemy.setData('frame', 0);
     enemy.setData('active', false);
     enemy.setData('alertTinted', false);
+    enemy.setData('idleUntil', 0);
+    enemy.setData('wanderSpeed', Phaser.Math.Between(35, 60));
+    enemy.setData('patrolTarget', {
+        x: Phaser.Math.Between(60, WORLD_W - 60),
+        y: Phaser.Math.Between(60, WORLD_H - 60)
+    });
     
     enemies.add(enemy);
     return enemy;
@@ -421,19 +629,22 @@ function spawnEnemy(x, y) {
 
 function hitEnemy(p, enemy) {
     if (invulnerable || isPaused || !gameStarted || extractionPhase === 2) return;
+    if (!enemy.active) return;
 
     if (cuttingActive) cancelCutting();
 
     lives--;
     livesText.setText('Salud: ' + lives);
+
+    const wasBaby = enemy.getData('baby');
     enemy.destroy();
-    
-    let side = Phaser.Math.Between(0, 3);
-    let outX = side === 0 ? -300 : (side === 1 ? 1100 : Phaser.Math.Between(-300, 1100));
-    let outY = side === 2 ? -300 : (side === 3 ? 900 : Phaser.Math.Between(-300, 900));
-    let newE = spawnEnemy(outX, outY);
-    newE.setData('active', true);
-    newE.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
+
+    // las crías no se reemplazan; las arañas normales sí
+    if (!wasBaby) {
+        const pt = respawnPoint();
+        const newE = spawnEnemy(pt.x, pt.y);
+        newE.setData('active', true);
+    }
 
     if (lives <= 0) return endGame();
 
@@ -467,16 +678,19 @@ function shootBullet() {
 }
 
 function destroyEnemy(bullet, enemy) {
+    if (!enemy.active) return;
+
+    const wasBaby = enemy.getData('baby');
     bullet.destroy();
     enemy.destroy();
+
+    if (wasBaby) return;
+
     scene.time.delayedCall(6000, () => {
         if (lives > 0) {
-            let side = Phaser.Math.Between(0, 3);
-            let outX = side === 0 ? -300 : (side === 1 ? 1100 : Phaser.Math.Between(-300, 1100));
-            let outY = side === 2 ? -300 : (side === 3 ? 900 : Phaser.Math.Between(-300, 900));
-            let newE = spawnEnemy(outX, outY);
+            const pt = respawnPoint();
+            const newE = spawnEnemy(pt.x, pt.y);
             newE.setData('active', true);
-            newE.setData('patrolTarget', { x: Phaser.Math.Between(100, 700), y: Phaser.Math.Between(100, 500) });
         }
     });
 }
@@ -489,21 +703,21 @@ function startCutting(coin) {
     cutProgress = 0;
     lastMouseX = scene.input.activePointer.x;
 
-    // Al interactuar con el huevo, se produce el temblor y se alerta a la horda
+    // Al tocar el huevo: temblor y todas las arañas del planeta vienen hacia ti
     if (!playerAlerted) {
         playerAlerted = true;
         scene.cameras.main.shake(800, 0.015);
     }
 
     // Interfaz en primer plano del minijuego
-    let bgBox = scene.add.rectangle(400, 300, 450, 250, 0x05050a, 0.95).setStrokeStyle(3, 0xff1a40).setDepth(20000);
-    let title = scene.add.text(400, 200, '>>> CORTE DE CÁPSULA TÁCTICA <<<', { fontSize: '14px', fill: '#ff4d79', fontFamily: 'Courier' }).setOrigin(0.5).setDepth(20001);
-    let instruction = scene.add.text(400, 230, 'Mueve el mouse de izquierda a derecha', { fontSize: '12px', fill: '#ffffff', fontFamily: 'Courier' }).setOrigin(0.5).setDepth(20001);
+    let bgBox = scene.add.rectangle(400, 300, 450, 250, 0x05050a, 0.95).setStrokeStyle(3, 0xff1a40).setScrollFactor(0).setDepth(20000);
+    let title = scene.add.text(400, 200, '>>> CORTE DE CÁPSULA TÁCTICA <<<', { fontSize: '14px', fill: '#ff4d79', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(20001);
+    let instruction = scene.add.text(400, 230, 'Mueve el mouse de izquierda a derecha', { fontSize: '12px', fill: '#ffffff', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(20001);
     
-    let barBg = scene.add.rectangle(400, 300, 300, 24, 0x222222).setStrokeStyle(1, 0xffffff).setDepth(20000);
-    let barFill = scene.add.rectangle(250, 300, 0, 20, 0xff1a40).setOrigin(0, 0.5).setDepth(20001);
+    let barBg = scene.add.rectangle(400, 300, 300, 24, 0x222222).setStrokeStyle(1, 0xffffff).setScrollFactor(0).setDepth(20000);
+    let barFill = scene.add.rectangle(250, 300, 0, 20, 0xff1a40).setOrigin(0, 0.5).setScrollFactor(0).setDepth(20001);
 
-    let cancelBtn = scene.add.text(400, 380, '[ Presiona ESPACIO o muévete para cancelar ]', { fontSize: '11px', fill: '#ffaa00', fontFamily: 'Courier' }).setOrigin(0.5).setDepth(20001);
+    let cancelBtn = scene.add.text(400, 380, '[ Presiona ESPACIO o muévete para cancelar ]', { fontSize: '11px', fill: '#ffaa00', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(20001);
 
     cutUIElements = [bgBox, title, instruction, barBg, barFill, cancelBtn];
 }
@@ -511,11 +725,19 @@ function startCutting(coin) {
 function completeCutting() {
     if (!cuttingActive) return;
     if (targetCoin && targetCoin.active) {
+        const glow = targetCoin.getData('glow');
+        if (glow) {
+            scene.tweens.killTweensOf(glow);
+            glow.destroy();
+        }
         targetCoin.destroy();
     }
     score++;
     scoreText.setText('Huevos: ' + score + ' / 10');
     closeCuttingUI();
+
+    // más de 3 huevos: despierta la madre
+    if (score > 3 && !motherActive) summonMother();
 }
 
 function cancelCutting() {
@@ -529,6 +751,93 @@ function closeCuttingUI() {
     targetCoin = null;
     cutUIElements.forEach(el => el.destroy());
     cutUIElements = [];
+}
+
+// ───────────────────── MADRE DE LAS ARAÑAS ─────────────────────
+// Aparece de fondo (pegada a la pantalla, asomándose por arriba), furiosa,
+// y cada cierto tiempo manda crías que caen desde el borde superior.
+function summonMother() {
+    motherActive = true;
+
+    scene.cameras.main.shake(1400, 0.02);
+    scene.tweens.add({ targets: ambientOverlay, alpha: 0.24, duration: 1500 });
+
+    motherGlow = scene.add.image(400, 70, 'motherGlow')
+        .setScrollFactor(0).setDepth(-9).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35);
+    scene.tweens.add({ targets: motherGlow, alpha: 1, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    mother = scene.add.image(400, -320, 'mother0')
+        .setScrollFactor(0).setDepth(-8).setRotation(Math.PI).setScale(1.6);
+    scene.tweens.add({ targets: mother, y: 10, duration: 1800, ease: 'Power2' });
+    scene.tweens.add({ targets: mother, x: 430, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    motherFrame = 0;
+    motherAnimEvent = scene.time.addEvent({
+        delay: 380,
+        loop: true,
+        callback: () => {
+            motherFrame = 1 - motherFrame;
+            if (mother && mother.active) mother.setTexture('mother' + motherFrame);
+        }
+    });
+
+    const banner = scene.add.text(400, 250, '¡LA MADRE DE LAS ARAÑAS\nESTÁ FURIOSA!', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '26px',
+        fill: '#ff2244',
+        align: 'center',
+        stroke: '#12030a',
+        strokeThickness: 5
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(16000).setAlpha(0).setScale(0.6);
+
+    scene.tweens.add({
+        targets: banner,
+        alpha: 1,
+        scale: 1,
+        duration: 350,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+            scene.tweens.add({ targets: banner, alpha: 0, delay: 2200, duration: 600, onComplete: () => banner.destroy() });
+        }
+    });
+
+    scheduleMotherWave(1800);
+}
+
+function scheduleMotherWave(firstDelay) {
+    if (!motherActive) return;
+
+    // cuantos más huevos tomas, más seguido manda crías
+    const delay = firstDelay || Math.max(1800, 3800 - (score - 4) * 400);
+    motherWaveTimer = scene.time.delayedCall(delay, () => {
+        motherWaveTimer = null;
+        if (!motherActive || lives <= 0) return;
+        if (!isPaused && extractionPhase !== 2) spawnBabies(Phaser.Math.Between(2, 3));
+        scheduleMotherWave();
+    });
+}
+
+function spawnBabies(n) {
+    if (!motherActive || !mother || !mother.active) return;
+
+    // la madre grita
+    scene.tweens.add({ targets: mother, scale: 1.75, duration: 160, yoyo: true });
+    scene.cameras.main.shake(250, 0.006);
+
+    const v = scene.cameras.main.worldView;
+    for (let i = 0; i < n; i++) {
+        if (enemies.countActive(true) >= MAX_ENEMIES) break;
+        const bx = Phaser.Math.Clamp(Phaser.Math.Between(v.left + 60, v.right - 60), 20, WORLD_W - 20);
+        const baby = spawnEnemy(bx, v.top - 40 - i * 30, 0.6);
+        baby.setData('baby', true);
+        baby.setData('active', true);
+    }
+}
+
+function stopMother() {
+    motherActive = false;
+    if (motherWaveTimer) { motherWaveTimer.remove(false); motherWaveTimer = null; }
+    if (motherAnimEvent) { motherAnimEvent.remove(false); motherAnimEvent = null; }
 }
 
 // ───────────────────── DIÁLOGO DE LA CENTRAL ─────────────────────
@@ -551,16 +860,16 @@ function showComms(message, good) {
     const font = 'Courier, monospace';
 
     const bg = scene.add.rectangle(px + pw / 2, py + ph / 2, pw, ph, 0x05050a, 0.93)
-        .setStrokeStyle(2, color).setDepth(15000);
+        .setStrokeStyle(2, color).setScrollFactor(0).setDepth(15000);
     const face = scene.add.text(px + 14, py + 16, good ? FACE_HAPPY : FACE_DEADPAN, {
         fontFamily: font, fontSize: '16px', fill: css
-    }).setDepth(15001);
+    }).setScrollFactor(0).setDepth(15001);
     const header = scene.add.text(px + 104, py + 8, '> CENTRAL // TRANSMISIÓN ENTRANTE', {
         fontFamily: font, fontSize: '11px', fill: css
-    }).setDepth(15001);
+    }).setScrollFactor(0).setDepth(15001);
     const body = scene.add.text(px + 104, py + 28, '', {
         fontFamily: font, fontSize: '14px', fill: '#ffffff', wordWrap: { width: pw - 124 }
-    }).setDepth(15001);
+    }).setScrollFactor(0).setDepth(15001);
 
     commsElements = [bg, face, header, body];
 
@@ -605,16 +914,21 @@ function triggerExtraction() {
         
         let offsetX = Phaser.Math.Between(-150, 150);
         let offsetY = Phaser.Math.Between(-100, 100);
-        extractionPoint.x = Phaser.Math.Clamp(player.x + offsetX, 100, 700);
-        extractionPoint.y = Phaser.Math.Clamp(player.y + offsetY, 100, 500);
+        extractionPoint.x = player.x + offsetX;
+        extractionPoint.y = player.y + offsetY;
     } else {
         extractionCountdownTimer = 3000;
         corporateHelpActive = false;
         showComms('¿En serio no te llevarás nada? Buah... igual nos quedas de paso.', false);
         
-        extractionPoint.x = player.x < 400 ? 720 : 80;
-        extractionPoint.y = player.y < 300 ? 520 : 80;
+        // zona hostil: al lado opuesto de la pantalla visible
+        const view = scene.cameras.main.worldView;
+        extractionPoint.x = player.x < view.centerX ? view.right - 80 : view.left + 80;
+        extractionPoint.y = player.y < view.centerY ? view.bottom - 80 : view.top + 80;
     }
+
+    extractionPoint.x = Phaser.Math.Clamp(extractionPoint.x, 100, WORLD_W - 100);
+    extractionPoint.y = Phaser.Math.Clamp(extractionPoint.y, 100, WORLD_H - 100);
 
     extractionZone = scene.add.text(extractionPoint.x, extractionPoint.y, '[ X ]', {
         fontFamily: 'Courier, monospace',
@@ -681,8 +995,9 @@ function triggerExtraction() {
 
 function triggeredVictory() {
     clearComms();
+    stopMother();
     scene.physics.pause();
-    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setDepth(10000);
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setScrollFactor(0).setDepth(10000);
 
     const victoryArt = 
         "  __  __ ___ ____ ___ ___  _   _    ____ _   _ __  __ ___  _     ____    _    \n" +
@@ -696,27 +1011,28 @@ function triggeredVictory() {
         fontSize: '10px',
         fill: '#00ff41',
         align: 'center'
-    }).setOrigin(0.5).setDepth(10001);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
     scene.add.text(400, 350, 'Huevos extraídos: ' + score + ' / 10', {
         fontFamily: 'Courier, monospace',
         fontSize: '16px',
         fill: '#ffffff'
-    }).setOrigin(0.5).setDepth(10001);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
     scene.add.text(400, 400, 'Presiona ESPACIO para volver a jugar', {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
         fill: '#00ff41'
-    }).setOrigin(0.5).setDepth(10001);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
 function endGame() {
     clearComms();
+    stopMother();
     scene.physics.pause();
-    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setDepth(10000);
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setScrollFactor(0).setDepth(10000);
 
     const cleanDefeat = 
         " __  __ ___ ____ ___ ___  _   _      ___ _    _     ___ ____    _    \n" +
@@ -730,13 +1046,13 @@ function endGame() {
         fontSize: '12px',
         fill: '#ff0055',
         align: 'center'
-    }).setOrigin(0.5).setDepth(10001);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
     scene.add.text(400, 350, 'Presiona ESPACIO para reintentar', {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
         fill: '#ffffff'
-    }).setOrigin(0.5).setDepth(10001);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
@@ -760,7 +1076,7 @@ function update(time, delta) {
             if (introTween2) introTween2.pause();
             if (introTween3) introTween3.pause();
 
-            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75).setDepth(10000);
+            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75).setScrollFactor(0).setDepth(10000);
             pauseElements.push(bgOverlay);
 
             const pauseArt = 
@@ -775,14 +1091,14 @@ function update(time, delta) {
                 fontSize: '16px',
                 fill: '#00ff41',
                 align: 'center'
-            }).setOrigin(0.5).setDepth(10001);
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
             pauseElements.push(asciiTitle);
 
             let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
                 fontFamily: 'Courier, monospace',
                 fontSize: '18px',
                 fill: '#ffffff'
-            }).setOrigin(0.5).setDepth(10001);
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
             pauseElements.push(subText);
 
         } else {
@@ -837,6 +1153,13 @@ function update(time, delta) {
         });
     }
 
+    const view = scene.cameras.main.worldView;
+
+    // las balas que salen de pantalla se eliminan (el mundo ahora es grande)
+    bullets.getChildren().slice().forEach(b => {
+        if (b.x < view.left - 150 || b.x > view.right + 150) b.destroy();
+    });
+
     if (extractionPhase === 2 || cuttingActive) {
         player.body.setVelocity(0);
         if (cuttingActive) {
@@ -868,8 +1191,10 @@ function update(time, delta) {
         player.body.setVelocityY(300);
     }
 
+    const pc = player.body.center;
+
     coins.getChildren().forEach(coin => {
-        if (coin.active && Phaser.Math.Distance.Between(player.x, player.y, coin.x, coin.y) < 40) {
+        if (coin.active && Phaser.Math.Distance.Between(pc.x, pc.y, coin.x, coin.y) < 45) {
             startCutting(coin);
         }
     });
@@ -885,27 +1210,42 @@ function update(time, delta) {
 
         if (isActive) {
             if (playerAlerted) {
-                scene.physics.moveToObject(e, player.body.center, 45);
+                // vienen todas hacia ti: corren si están lejos y se frenan al acercarse
+                const d = Phaser.Math.Distance.Between(e.x, e.y, pc.x, pc.y);
+                let speed = Phaser.Math.Clamp(d * 0.35, 45, 160);
+                if (e.getData('baby')) speed *= 1.25;
+                scene.physics.moveToObject(e, pc, speed);
+            } else if (scene.time.now < e.getData('idleUntil')) {
+                // olfateando
+                e.body.setVelocity(0);
             } else {
+                // cazando / merodeando por todo el planeta
                 let target = e.getData('patrolTarget');
                 if (Phaser.Math.Distance.Between(e.x, e.y, target.x, target.y) < 20) {
-                    e.setData('patrolTarget', { x: Phaser.Math.Between(50, 750), y: Phaser.Math.Between(50, 550) });
+                    target = {
+                        x: Phaser.Math.Between(60, WORLD_W - 60),
+                        y: Phaser.Math.Between(60, WORLD_H - 60)
+                    };
+                    e.setData('patrolTarget', target);
+                    if (Math.random() < 0.5) {
+                        e.setData('idleUntil', scene.time.now + Phaser.Math.Between(1000, 3000));
+                    }
                 }
-                scene.physics.moveToObject(e, target, 30);
-            }
-
-            // la araña mira hacia donde camina
-            if (e.body.speed > 1) {
-                e.rotation = Math.atan2(e.body.velocity.y, e.body.velocity.x) + Math.PI / 2;
+                scene.physics.moveToObject(e, target, e.getData('wanderSpeed'));
             }
         } else {
             e.body.setVelocity(0);
         }
 
-        e.setDepth(e.y);
+        const moving = isActive && e.body.speed > 1;
 
-        let depthScale = Phaser.Math.Clamp(e.y / 450, 0.7, 1.3);
-        e.setScale(depthScale);
+        // la araña mira hacia donde camina
+        if (moving) {
+            e.rotation = Math.atan2(e.body.velocity.y, e.body.velocity.x) + Math.PI / 2;
+        }
+
+        e.setDepth(e.y);
+        e.setScale(depthScaleFor(e.y) * (e.getData('sizeMul') || 1));
 
         // ojos y patas se ponen rojos cuando la horda está alerta
         if (playerAlerted && !e.getData('alertTinted')) {
@@ -913,8 +1253,8 @@ function update(time, delta) {
             e.setData('alertTinted', true);
         }
 
-        // animación de patas (más rápida en alerta)
-        if (isActive) {
+        // animación de patas (solo si camina; más rápida en alerta)
+        if (moving) {
             let timer = e.getData('animTimer') + 1;
             if (timer > (playerAlerted ? 8 : 15)) {
                 let nextFrame = e.getData('frame') === 0 ? 1 : 0;
@@ -925,31 +1265,27 @@ function update(time, delta) {
             e.setData('animTimer', timer);
         }
     });
-
-    coins.getChildren().forEach(coin => {
-        coin.setDepth(coin.y);
-        let coinScale = Phaser.Math.Clamp(coin.y / 450, 0.8, 1.2);
-        coin.setScale(coinScale);
-    });
 }
 
 // ───────────────────────── MINIMAPA ─────────────────────────
 function createMinimap() {
-    scene.minimapGfx = scene.add.graphics().setDepth(5000);
-    scene.minimapLabel = scene.add.text(628, 446, 'RADAR PLANETARIO', {
+    scene.minimapGfx = scene.add.graphics().setScrollFactor(0).setDepth(5000);
+    scene.minimapLabel = scene.add.text(618, 436, 'RADAR PLANETARIO', {
         fontSize: '9px', fill: '#ff4d79', fontFamily: 'Courier'
-    }).setDepth(5001);
+    }).setScrollFactor(0).setDepth(5001);
 }
 
 function drawMinimap() {
     const g = scene.minimapGfx;
     if (!g) return;
 
-    const mapX = 620, mapY = 440, mapW = 160, mapH = 140;
+    const mapX = 610, mapY = 430, mapW = 180, mapH = 150;
+    const inX = mapX + 2, inY = mapY + 22, inW = mapW - 4, inH = mapH - 29;
     const now = scene.time.now;
 
-    const mx = x => mapX + Phaser.Math.Clamp((x / 800) * mapW, 2, mapW - 2);
-    const my = y => mapY + 20 + Phaser.Math.Clamp((y / 600) * (mapH - 25), 2, mapH - 27);
+    // el radar muestra el planeta completo
+    const mx = x => inX + Phaser.Math.Clamp(x / WORLD_W, 0, 1) * inW;
+    const my = y => inY + Phaser.Math.Clamp(y / WORLD_H, 0, 1) * inH;
 
     g.clear();
 
@@ -959,20 +1295,22 @@ function drawMinimap() {
     g.lineStyle(2, 0xff4d79, 1);
     g.strokeRect(mapX, mapY, mapW, mapH);
     g.lineStyle(1, 0x4a1525, 1);
-    g.strokeRect(mapX + 2, mapY + 22, mapW - 4, mapH - 29);
+    g.strokeRect(inX, inY, inW, inH);
 
     // barrido del radar
-    const sweepX = mapX + 2 + ((now / 25) % (mapW - 4));
+    const sweepX = inX + ((now / 25) % inW);
     g.lineStyle(1, 0xff4d79, 0.25);
-    g.lineBetween(sweepX, mapY + 22, sweepX, mapY + mapH - 7);
+    g.lineBetween(sweepX, inY, sweepX, inY + inH);
+
+    // lo que alcanzas a ver en pantalla
+    const v = scene.cameras.main.worldView;
+    g.lineStyle(1, 0xffffff, 0.35);
+    g.strokeRect(mx(v.x), my(v.y), (v.width / WORLD_W) * inW, (v.height / WORLD_H) * inH);
 
     // huevos
     g.fillStyle(0xff1a40, 1);
     coins.getChildren().forEach(coin => {
-        if (coin.active) {
-            const c = coin.body.center;
-            g.fillRect(mx(c.x) - 1, my(c.y) - 1, 3, 3);
-        }
+        if (coin.active) g.fillRect(mx(coin.x) - 1, my(coin.y) - 1, 3, 3);
     });
 
     // punto de extracción
@@ -985,10 +1323,7 @@ function drawMinimap() {
     // arañas
     g.fillStyle(playerAlerted ? 0xff0000 : 0xffaa00, 1);
     enemies.getChildren().forEach(e => {
-        if (e.active) {
-            const c = e.body.center;
-            g.fillRect(mx(c.x) - 1, my(c.y) - 1, 3, 3);
-        }
+        if (e.active) g.fillRect(mx(e.x) - 1, my(e.y) - 1, 3, 3);
     });
 
     const pulse = 3 + 2 * Math.sin(now / 200);
@@ -1003,8 +1338,8 @@ function drawMinimap() {
     } else {
         // aún no aterrizas: marca el punto de aterrizaje
         g.lineStyle(1, 0x00ffff, 0.8);
-        g.strokeCircle(mx(landingX), my(350), pulse + 2);
+        g.strokeCircle(mx(landingX), my(landingY), pulse + 2);
         g.fillStyle(0x00ffff, 1);
-        g.fillRect(mx(landingX) - 1, my(350) - 1, 3, 3);
+        g.fillRect(mx(landingX) - 1, my(landingY) - 1, 3, 3);
     }
 }
