@@ -294,6 +294,36 @@ h1 {
     border-color: var(--primary);
 }
 
+/* ── Botón Itch.io ── */
+.play-btn {
+    display: inline-block;
+    margin-top: 22px;
+    padding: 14px 32px;
+    background: var(--primary);
+    color: #fff;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-decoration: none;
+    border: 2px solid var(--primary);
+    transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.play-btn:hover {
+    background: transparent;
+    color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.itch-cta {
+    text-align: center;
+}
+
+.itch-cta p {
+    margin-bottom: 0;
+}
+
 /* ── Juego ── */
 #game-container {
     width: 100%;
