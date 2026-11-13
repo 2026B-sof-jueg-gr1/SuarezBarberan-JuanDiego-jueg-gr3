@@ -816,7 +816,7 @@ function scheduleMotherWave(firstDelay) {
         motherWaveTimer = null;
         if (!motherActive || lives <= 0) return;
         if (!isPaused && extractionPhase !== 2) {
-            spawnBabies(Phaser.Math.Between(2, 3)); // Crías desde arriba[cite: 1]
+            spawnBabies(Phaser.Math.Between(2, 3)); // Crías desde arriba
             spawnFromCraters(Phaser.Math.Between(1, 2)); // Arañas saliendo de los huecos/cráteres del planeta
         }
         scheduleMotherWave();
@@ -1073,4 +1073,294 @@ function endGame() {
     clearComms();
     stopMother();
     scene.physics.pause();
-    scene.add.rectangle(400, 300, 800, 600, 0x000000,
+    scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setScrollFactor(0).setDepth(10000);
+
+    const cleanDefeat = 
+        " __  __ ___ ____ ___ ___  _   _      ___ _    _     ___ ____    _    \n" +
+        "|  \\/  |_ _/ ___|_ _/ _ \\| \\ | |    |  _| |  | |   |_ _|  _ \\  / \\   \n" +
+        "| |\\/| || |\\___ \\| | | | |  \\| |    | |_ | |  | |    | || | | |/ _ \\  \n" +
+        "| |  | || | ___) | | |_| | |\\  |    |  _|| |__| |___ | || |_| / ___ \\ \n" +
+        "|_|  |_|___|____/___\\___/|_| \\_|    |_|  |_____|_____|___|____/_/   \\_\\";
+
+    scene.add.text(400, 260, cleanDefeat, {
+        fontFamily: 'Courier, monospace',
+        fontSize: '12px',
+        fill: '#ff0055',
+        align: 'center'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+
+    scene.add.text(400, 350, 'Presiona ESPACIO para reintentar', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '18px',
+        fill: '#ffffff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+
+    scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
+}
+
+function update(time, delta) {
+    if (lives <= 0) return;
+
+    drawMinimap();
+
+    if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+        if (cuttingActive) {
+            cancelCutting();
+            return;
+        }
+
+        isPaused = !isPaused;
+        if (isPaused) {
+            scene.physics.pause();
+            if (introTween1) introTween1.pause();
+            if (introTween2) introTween2.pause();
+            if (introTween3) introTween3.pause();
+
+            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75).setScrollFactor(0).setDepth(10000);
+            pauseElements.push(bgOverlay);
+
+            const pauseArt = 
+                "  ____   _   _ ____   ____      _    \n" +
+                " |  _ \\ / \\ | / ___| / ___|    / \\   \n" +
+                " | |_) / _ \\| \\___ \\ \\___ \\   / _ \\  \n" +
+                " |  __/ ___ \\ |___) | ___) | / ___ \\ \n" +
+                " |_| /_/   \\_\\____/ |____/ /_/   \\_\\";
+
+            let asciiTitle = scene.add.text(400, 250, pauseArt, {
+                fontFamily: 'Courier, monospace',
+                fontSize: '16px',
+                fill: '#00ff41',
+                align: 'center'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+            pauseElements.push(asciiTitle);
+
+            let subText = scene.add.text(400, 370, '- PRESIONA ESPACIO PARA CONTINUAR -', {
+                fontFamily: 'Courier, monospace',
+                fontSize: '18px',
+                fill: '#ffffff'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+            pauseElements.push(subText);
+
+        } else {
+            scene.physics.resume();
+            if (introTween1) introTween1.resume();
+            if (introTween2) introTween2.resume();
+            if (introTween3) introTween3.resume();
+
+            pauseElements.forEach(element => element.destroy());
+            pauseElements = [];
+        }
+    }
+
+    if (isPaused || !gameStarted) {
+        if (player && isPaused) player.body.setVelocity(0);
+        if (isPaused) return;
+        if (!gameStarted) return;
+    }
+
+    if (Phaser.Input.Keyboard.JustDown(extractKey)) {
+        triggerExtraction();
+    }
+
+    if (extracting) {
+        let elapsedTime = scene.time.now - window.extractingStartTime;
+        if (extractionPhase === 0) {
+            let remainingInitial = Math.max(0, Math.ceil((extractionTotalTimer - elapsedTime) / 1000));
+            extractionText.setText('EXTRACCIÓN EN CAMINO: ' + remainingInitial + 's');
+        } else if (extractionPhase === 1) {
+            let elapsedArrival = elapsedTime - extractionTotalTimer;
+            let remainingArrival = Math.max(0, Math.ceil((extractionCountdownTimer - elapsedArrival) / 1000));
+            let zoneLabel = score > 0 ? 'SÚBETE AL [ X ] (VIP): ' : 'SÚBETE AL [ X ] (ZONA HOSTIL): ';
+            extractionText.setText(zoneLabel + remainingArrival + 's');
+        }
+    } else {
+        extractionText.setText('[E] Solicitar Extracción');
+    }
+
+    if (corporateHelpActive && extractionShip) {
+        enemies.getChildren().forEach(e => {
+            if (e.active && Phaser.Math.Distance.Between(extractionShip.x, extractionShip.y, e.x, e.y) < 250) {
+                if (Math.random() < 0.1) {
+                    let supportLaser = scene.add.text(extractionShip.x, extractionShip.y, 'v', { fontFamily: 'Courier', fontSize: '14px', fill: '#00ffff' });
+                    scene.physics.add.existing(supportLaser);
+                    scene.physics.moveToObject(supportLaser, e, 600);
+                    scene.physics.add.overlap(supportLaser, e, (laser, enemy) => {
+                        laser.destroy();
+                        enemy.destroy();
+                    });
+                }
+            }
+        });
+    }
+
+    const view = scene.cameras.main.worldView;
+
+    bullets.getChildren().slice().forEach(b => {
+        if (b.x < view.left - 150 || b.x > view.right + 150) b.destroy();
+    });
+
+    if (extractionPhase === 2 || cuttingActive) {
+        player.body.setVelocity(0);
+        if (cuttingActive) {
+            if (cutUIElements[4]) {
+                cutUIElements[4].width = Math.min(300, (cutProgress / 100) * 300);
+            }
+            if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown) {
+                cancelCutting();
+            }
+        }
+        return;
+    }
+
+    player.body.setVelocity(0);
+    
+    if (cursors.left.isDown) {
+        player.body.setVelocityX(-300);
+        player.setData('facing', 'left');
+    } else if (cursors.right.isDown) {
+        player.body.setVelocityX(300);
+        player.setData('facing', 'right');
+    }
+
+    if (cursors.up.isDown) {
+        player.body.setVelocityY(-300);
+    } else if (cursors.down.isDown) {
+        player.body.setVelocityY(300);
+    }
+
+    const pc = player.body.center;
+
+    coins.getChildren().forEach(coin => {
+        if (coin.active && Phaser.Math.Distance.Between(pc.x, pc.y, coin.x, coin.y) < 45) {
+            startCutting(coin);
+        }
+    });
+
+    if (Phaser.Input.Keyboard.JustDown(attackKey)) {
+        shootBullet();
+    }
+
+    player.setDepth(player.y);
+
+    enemies.getChildren().forEach(e => {
+        const isActive = e.getData('active');
+
+        if (isActive) {
+            if (playerAlerted) {
+                const d = Phaser.Math.Distance.Between(e.x, e.y, pc.x, pc.y);
+                let speed = Phaser.Math.Clamp(d * 0.35, 45, 160);
+                if (e.getData('baby')) speed *= 1.25;
+                scene.physics.moveToObject(e, pc, speed);
+            } else if (scene.time.now < e.getData('idleUntil')) {
+                e.body.setVelocity(0);
+            } else {
+                let target = e.getData('patrolTarget');
+                if (Phaser.Math.Distance.Between(e.x, e.y, target.x, target.y) < 20) {
+                    target = {
+                        x: Phaser.Math.Between(60, WORLD_W - 60),
+                        y: Phaser.Math.Between(60, WORLD_H - 60)
+                    };
+                    e.setData('patrolTarget', target);
+                    if (Math.random() < 0.5) {
+                        e.setData('idleUntil', scene.time.now + Phaser.Math.Between(1000, 3000));
+                    }
+                }
+                scene.physics.moveToObject(e, target, e.getData('wanderSpeed'));
+            }
+        } else {
+            e.body.setVelocity(0);
+        }
+
+        const moving = isActive && e.body.speed > 1;
+
+        if (moving) {
+            e.rotation = Math.atan2(e.body.velocity.y, e.body.velocity.x) + Math.PI / 2;
+        }
+
+        e.setDepth(e.y);
+        e.setScale(depthScaleFor(e.y) * (e.getData('sizeMul') || 1));
+
+        if (playerAlerted && !e.getData('alertTinted')) {
+            e.setTint(0xff5555);
+            e.setData('alertTinted', true);
+        }
+
+        if (moving) {
+            let timer = e.getData('animTimer') + 1;
+            if (timer > (playerAlerted ? 8 : 15)) {
+                let nextFrame = e.getData('frame') === 0 ? 1 : 0;
+                e.setTexture('spider' + nextFrame);
+                e.setData('frame', nextFrame);
+                timer = 0;
+            }
+            e.setData('animTimer', timer);
+        }
+    });
+}
+
+function createMinimap() {
+    scene.minimapGfx = scene.add.graphics().setScrollFactor(0).setDepth(5000);
+    scene.minimapLabel = scene.add.text(618, 436, 'RADAR PLANETARIO', {
+        fontSize: '9px', fill: '#ff4d79', fontFamily: 'Courier'
+    }).setScrollFactor(0).setDepth(5001);
+}
+
+function drawMinimap() {
+    const g = scene.minimapGfx;
+    if (!g) return;
+
+    const mapX = 610, mapY = 430, mapW = 180, mapH = 150;
+    const inX = mapX + 2, inY = mapY + 22, inW = mapW - 4, inH = mapH - 29;
+    const now = scene.time.now;
+
+    const mx = x => inX + Phaser.Math.Clamp(x / WORLD_W, 0, 1) * inW;
+    const my = y => inY + Phaser.Math.Clamp(y / WORLD_H, 0, 1) * inH;
+
+    g.clear();
+
+    g.fillStyle(0x1a0508, 0.9);
+    g.fillRect(mapX, mapY, mapW, mapH);
+    g.lineStyle(2, 0xff4d79, 1);
+    g.strokeRect(mapX, mapY, mapW, mapH);
+    g.lineStyle(1, 0x4a1525, 1);
+    g.strokeRect(inX, inY, inW, inH);
+
+    const sweepX = inX + ((now / 25) % inW);
+    g.lineStyle(1, 0xff4d79, 0.25);
+    g.lineBetween(sweepX, inY, sweepX, inY + inH);
+
+    const v = scene.cameras.main.worldView;
+    g.lineStyle(1, 0xffffff, 0.35);
+    g.strokeRect(mx(v.x), my(v.y), (v.width / WORLD_W) * inW, (v.height / WORLD_H) * inH);
+
+    g.fillStyle(0xff1a40, 1);
+    coins.getChildren().forEach(coin => {
+        if (coin.active) g.fillRect(mx(coin.x) - 1, my(coin.y) - 1, 3, 3);
+    });
+
+    if (extracting && extractionZone) {
+        const blink = Math.floor(now / 300) % 2 === 0;
+        g.fillStyle(score > 0 ? 0x00ffff : 0xff0055, blink ? 1 : 0.4);
+        g.fillRect(mx(extractionPoint.x) - 2, my(extractionPoint.y) - 2, 5, 5);
+    }
+
+    g.fillStyle(playerAlerted ? 0xff0000 : 0xffaa00, 1);
+    enemies.getChildren().forEach(e => {
+        if (e.active) g.fillRect(mx(e.x) - 1, my(e.y) - 1, 3, 3);
+    });
+
+    const pulse = 3 + 2 * Math.sin(now / 200);
+
+    if (player && player.alpha > 0) {
+        const c = player.body.center;
+        g.fillStyle(0x00ff41, 1);
+        g.fillRect(mx(c.x) - 2, my(c.y) - 2, 4, 4);
+        g.lineStyle(1, 0x00ff41, 0.6);
+        g.strokeCircle(mx(c.x), my(c.y), pulse + 2);
+    } else {
+        g.lineStyle(1, 0x00ffff, 0.8);
+        g.strokeCircle(mx(landingX), my(landingY), pulse + 2);
+        g.fillStyle(0x00ffff, 1);
+        g.fillRect(mx(landingX) - 1, my(landingY) - 1, 3, 3);
+    }
+}
