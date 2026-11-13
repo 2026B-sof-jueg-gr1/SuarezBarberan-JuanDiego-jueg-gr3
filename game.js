@@ -1,5 +1,4 @@
 // ───────── Constantes del mundo ─────────
-// El planeta es más grande que la pantalla: la cámara sigue al jugador y el radar muestra todo.
 const WORLD_W = 2000;
 const WORLD_H = 1500;
 const MAX_ENEMIES = 28;
@@ -23,8 +22,8 @@ new Phaser.Game(config);
 
 let scene, player, ship, beam, cursors, spaceKey, attackKey, extractKey;
 let coins, enemies, bullets;
-let scoreText, livesText, extractionText, timerText;
-let score = 0, lives = 3, invulnerable = false;
+let scoreText, moneyText, livesText, extractionText, timerText;
+let score = 0, money = 0, lives = 3, invulnerable = false;
 let isPaused = false, pauseElements = [];
 let lastFired = 0;
 let gameStarted = false;
@@ -67,6 +66,7 @@ function create() {
     scene = this;
 
     score = 0;
+    money = 0;
     lives = 3;
     invulnerable = false;
     isPaused = false;
@@ -114,7 +114,6 @@ function create() {
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
 
-    // huevos agrupados en nidos repartidos por el planeta
     nests.forEach(n => {
         for (let i = 0; i < n.eggs; i++) {
             const a = (i / n.eggs) * Math.PI * 2 + Math.random();
@@ -123,7 +122,6 @@ function create() {
         }
     });
 
-    // las arañas andan por todo el planeta, lejos de donde aterrizas (quietas hasta que aterrizas)
     for (let i = 0; i < 10; i++) {
         const p = farWorldPoint(700, landingX, landingY);
         spawnEnemy(p.x, p.y);
@@ -190,7 +188,6 @@ function create() {
                     enemies.getChildren().forEach(e => e.setData('active', true));
                     gameStarted = true;
 
-                    // la cámara empieza a seguir al jugador
                     scene.cameras.main.startFollow(player, true, 0.08, 0.08, -27, -31);
                 }
             });
@@ -199,9 +196,10 @@ function create() {
 
     const hudStyle = { fontFamily: 'Courier', stroke: '#12030a', strokeThickness: 3 };
     scoreText = this.add.text(16, 16, 'Huevos: 0 / 10', { ...hudStyle, fontSize: '18px', fill: '#ff4d79' }).setScrollFactor(0).setDepth(6000);
-    livesText = this.add.text(16, 42, 'Salud: 3', { ...hudStyle, fontSize: '18px', fill: '#ff0055' }).setScrollFactor(0).setDepth(6000);
-    extractionText = this.add.text(16, 68, '[E] Solicitar Extracción', { ...hudStyle, fontSize: '16px', fill: '#00ffff' }).setScrollFactor(0).setDepth(6000);
-    timerText = this.add.text(16, 94, '', { ...hudStyle, fontSize: '16px', fill: '#ffaa00' }).setScrollFactor(0).setDepth(6000);
+    moneyText = this.add.text(16, 42, 'Dinero: $0', { ...hudStyle, fontSize: '18px', fill: '#00ffcc' }).setScrollFactor(0).setDepth(6000);
+    livesText = this.add.text(16, 68, 'Salud: 3', { ...hudStyle, fontSize: '18px', fill: '#ff0055' }).setScrollFactor(0).setDepth(6000);
+    extractionText = this.add.text(16, 94, '[E] Solicitar Extracción', { ...hudStyle, fontSize: '16px', fill: '#00ffff' }).setScrollFactor(0).setDepth(6000);
+    timerText = this.add.text(16, 120, '', { ...hudStyle, fontSize: '16px', fill: '#ffaa00' }).setScrollFactor(0).setDepth(6000);
 
     createMinimap();
 
@@ -213,13 +211,11 @@ function create() {
     attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.KeyF);
     extractKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-    // Configurar evento de movimiento del mouse para el minijuego de corte
     scene.input.on('pointermove', (pointer) => {
         if (!cuttingActive) return;
 
-        // Detectar arrastre de izquierda a derecha para cortar
         let deltaX = pointer.x - lastMouseX;
-        if (deltaX > 2) { // Si mueve el mouse a la derecha activamente
+        if (deltaX > 2) { 
             cutProgress += deltaX * 0.8;
             if (cutProgress >= 100) {
                 completeCutting();
@@ -229,7 +225,6 @@ function create() {
     });
 }
 
-// ───────────────────────── UTILIDADES DEL MUNDO ─────────────────────────
 function depthScaleFor(y) {
     return Phaser.Math.Clamp(0.75 + (y / WORLD_H) * 0.5, 0.75, 1.25);
 }
@@ -254,7 +249,6 @@ function offscreenSpawnPoint() {
     return { x: Phaser.Math.Between(v.left, v.right), y: v.bottom + m };
 }
 
-// Si ya hay alerta, los reemplazos entran por el borde de la pantalla; si no, aparecen lejos.
 function respawnPoint() {
     if (playerAlerted) return offscreenSpawnPoint();
     const pc = player.body.center;
@@ -267,7 +261,6 @@ function buildNests() {
     const rnd = Phaser.Math.Between;
     const dist2 = Phaser.Math.Distance.Between;
 
-    // el primer nido queda cerca del aterrizaje para que arranques con huevos a la vista
     const ang = Math.random() * Math.PI * 2;
     const d = rnd(280, 420);
     result.push({
@@ -290,7 +283,6 @@ function buildNests() {
     return result;
 }
 
-// ───────────────────────── SUELO ─────────────────────────
 function drawRock(g, rx, ry, rw) {
     const rh = Math.round(rw * 0.6);
     g.fillStyle(0x0d0306, 0.5);
@@ -410,7 +402,6 @@ function drawGround() {
     scene.add.image(0, 0, 'ground').setOrigin(0, 0).setDepth(-10);
 }
 
-// ───────────────────────── ARAÑAS ─────────────────────────
 function buildSpiderTexture(key, frame, s, pal) {
     const W = 56 * s, H = 48 * s;
     const g = scene.make.graphics({ x: 0, y: 0, add: false });
@@ -493,7 +484,6 @@ function ensureSpiderTextures() {
     g.destroy();
 }
 
-// ───────────────────────── HUEVOS ─────────────────────────
 function drawEggSac(g, cx, cy, w, h, embryo) {
     g.fillStyle(0x3a0614, 1);
     g.fillEllipse(cx, cy, w, h);
@@ -695,7 +685,13 @@ function startCutting(coin) {
 
 function completeCutting() {
     if (!cuttingActive) return;
+
+    let eggX = player.x;
+    let eggY = player.y - 30;
+
     if (targetCoin && targetCoin.active) {
+        eggX = targetCoin.x;
+        eggY = targetCoin.y;
         const glow = targetCoin.getData('glow');
         if (glow) {
             scene.tweens.killTweensOf(glow);
@@ -703,9 +699,32 @@ function completeCutting() {
         }
         targetCoin.destroy();
     }
+
     score++;
+    money += 300; // $300 por cada huevo (máximo $3000 con los 10)
     scoreText.setText('Huevos: ' + score + ' / 10');
+    moneyText.setText('Dinero: $' + money);
+
     closeCuttingUI();
+
+    // Animación de ganancia flotante (+ $300)
+    let floatText = scene.add.text(eggX, eggY, '+ $300', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '22px',
+        fill: '#00ffcc',
+        stroke: '#000000',
+        strokeThickness: 4
+    }).setOrigin(0.5).setDepth(25000);
+
+    scene.tweens.add({
+        targets: floatText,
+        y: eggY - 70,
+        alpha: 0,
+        scale: 1.4,
+        duration: 1200,
+        ease: 'Power2',
+        onComplete: () => floatText.destroy()
+    });
 
     if (score > 3 && !motherActive) summonMother();
 }
@@ -723,7 +742,6 @@ function closeCuttingUI() {
     cutUIElements = [];
 }
 
-// ───────────────────── MADRE DE LAS ARAÑAS ─────────────────────
 function summonMother() {
     motherActive = true;
 
@@ -806,7 +824,6 @@ function stopMother() {
     if (motherAnimEvent) { motherAnimEvent.remove(false); motherAnimEvent = null; }
 }
 
-// ───────────────────── DIÁLOGO DE LA CENTRAL ─────────────────────
 function clearComms() {
     if (commsTyper) { commsTyper.remove(false); commsTyper = null; }
     if (commsHold) { commsHold.remove(false); commsHold = null; }
@@ -874,7 +891,7 @@ function triggerExtraction() {
     if (score > 0) {
         extractionCountdownTimer = 7000;
         corporateHelpActive = true;
-        showComms('¡Tienes ' + score + (score === 1 ? ' huevo' : ' huevos') + '! Qué bueno, vamos en seguida.', true);
+        showComms('¡Tienes ' + score + (score === 1 ? ' huevo' : ' huevos') + ' acumulando $' + money + '! Vamos en seguida.', true);
         
         let offsetX = Phaser.Math.Between(-150, 150);
         let offsetY = Phaser.Math.Between(-100, 100);
@@ -883,7 +900,7 @@ function triggerExtraction() {
     } else {
         extractionCountdownTimer = 3000;
         corporateHelpActive = false;
-        showComms('¿En serio no te llevarás nada? Buah... igual nos quedas de paso.', false);
+        showComms('¿En serio no te llevarás nada? Cero dólares para ti. Resuélvelo.', false);
         
         const view = scene.cameras.main.worldView;
         extractionPoint.x = player.x < view.centerX ? view.right - 80 : view.left + 80;
@@ -907,7 +924,6 @@ function triggerExtraction() {
         repeat: -1
     });
 
-    // Fase 0: Esperar a que la nave llegue desde arriba
     scene.time.delayedCall(extractionTotalTimer, () => {
         if (lives > 0 && extracting) {
             extractionPhase = 1;
@@ -918,7 +934,6 @@ function triggerExtraction() {
                 "  [=====]  \n" +
                 "== O O O == ";
 
-            // CREAR LA NAVE FUERA DE PANTALLA (ARRIBA) Y HACER QUE DESCIENDA FLOTANDO
             extractionShip = scene.add.text(extractionPoint.x, extractionPoint.y - 400, shipAscii, {
                 fontFamily: 'Courier, monospace',
                 fontSize: '16px',
@@ -928,7 +943,6 @@ function triggerExtraction() {
 
             extractionBeam = scene.add.rectangle(extractionPoint.x, extractionPoint.y - 340, 50, 120, 0x00ffff, 0.3).setOrigin(0.5, 0);
 
-            // Animación de descenso orbital de la nave
             scene.tweens.add({
                 targets: [extractionShip, extractionBeam],
                 y: '+=280',
@@ -939,7 +953,6 @@ function triggerExtraction() {
                 }
             });
 
-            // Ventana de espera activa para que el jugador suba
             scene.time.delayedCall(extractionCountdownTimer, () => {
                 if (lives > 0 && extracting && extractionPhase === 1) {
                     let distance = Phaser.Math.Distance.Between(player.x, player.y, extractionPoint.x, extractionPoint.y);
@@ -948,7 +961,6 @@ function triggerExtraction() {
                         corporateHelpActive = false;
                         player.body.setVelocity(0);
 
-                        // Secuencia épica de despegue con el jugador dentro
                         scene.tweens.add({
                             targets: player,
                             y: extractionPoint.y - 100,
@@ -984,20 +996,26 @@ function triggeredVictory() {
         " | |  | || | ___) | | |_| | |\\  | | |___| |_| | |  | |  __/| |___| |_| / ___ \\ \n" +
         " |_|  |_|___|____/___\\___/|_| \\_|  \\____|\\___/|_|  |_|_|   |_____|____/_/   \\_\\";
 
-    scene.add.text(400, 260, victoryArt, {
+    scene.add.text(400, 240, victoryArt, {
         fontFamily: 'Courier, monospace',
         fontSize: '10px',
         fill: '#00ff41',
         align: 'center'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
-    scene.add.text(400, 350, 'Huevos extraídos: ' + score + ' / 10', {
+    scene.add.text(400, 330, 'Huevos extraídos: ' + score + ' / 10', {
         fontFamily: 'Courier, monospace',
         fontSize: '16px',
         fill: '#ffffff'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
-    scene.add.text(400, 400, 'Presiona ESPACIO para volver a jugar', {
+    scene.add.text(400, 370, 'Dinero total obtenido: $' + money + ' / $3000', {
+        fontFamily: 'Courier, monospace',
+        fontSize: '18px',
+        fill: '#00ffcc'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+
+    scene.add.text(400, 420, 'Presiona ESPACIO para volver a jugar', {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
         fill: '#00ff41'
@@ -1235,7 +1253,6 @@ function update(time, delta) {
     });
 }
 
-// ───────────────────────── MINIMAPA ─────────────────────────
 function createMinimap() {
     scene.minimapGfx = scene.add.graphics().setScrollFactor(0).setDepth(5000);
     scene.minimapLabel = scene.add.text(618, 436, 'RADAR PLANETARIO', {
