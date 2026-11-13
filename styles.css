@@ -107,17 +107,16 @@ body {
 /* personaje */
 .splash-char {
     position: absolute;
-    right: 4%;
+    right: 5%;
     bottom: 0;
-    height: 92vh;
-    max-height: 700px;
+    height: 85vh;
+    max-height: 650px;
     width: auto;
     image-rendering: pixelated;
     filter:
-        drop-shadow(0 0 40px rgba(227,66,66,0.5))
+        drop-shadow(0 0 40px rgba(227,66,66,0.55))
         drop-shadow(0 0 80px rgba(180,20,40,0.3));
     animation: splash-float 4s ease-in-out infinite;
-    z-index: 2;
 }
 
 @keyframes splash-float {
@@ -182,12 +181,24 @@ body {
 }
 
 .splash-hint {
+    display: inline-block;
     margin-top: 28px;
     color: var(--text-muted);
     font-size: 0.75rem;
+    font-family: var(--font-main);
     letter-spacing: 2px;
     opacity: 0.6;
     animation: blink 2s ease-in-out infinite;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 0;
+    transition: color 0.2s, opacity 0.2s;
+}
+
+.splash-hint:hover {
+    color: var(--primary);
+    opacity: 1;
 }
 
 @keyframes blink {
@@ -197,15 +208,10 @@ body {
 
 /* responsive splash */
 @media (max-width: 768px) {
-    .splash {
-        flex-direction: column;
-        justify-content: flex-end;
-        padding-bottom: 48px;
-    }
     .splash-char {
-        height: 55vh;
         right: 50%;
         transform: translateX(50%);
+        height: 55vh;
         opacity: 0.35;
     }
     .splash-text {

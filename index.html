@@ -32,14 +32,14 @@
         <a href="https://juandiegosuarezepn.itch.io/alien-egg-hunter" target="_blank" rel="noopener" class="splash-btn">
           ▶ JUGAR AHORA
         </a>
-        <p class="splash-hint">↓ desplázate para más información</p>
+        <button class="splash-hint" id="scrollDown" onclick="document.getElementById('content').scrollIntoView({behavior:'smooth'})">↓ desplázate para más información</button>
       </div>
     </section>
 
     <!-- ══════════════════════════════════════
          RESTO DE LA LANDING
     ══════════════════════════════════════ -->
-    <main class="container">
+    <main class="container" id="content">
 
       <!-- Contrato espacial -->
       <section class="section-box">
