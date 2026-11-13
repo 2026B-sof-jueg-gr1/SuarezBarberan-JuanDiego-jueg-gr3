@@ -122,34 +122,6 @@ function create() {
     ensureSpiderTextures();
     ensureEggTextures();
 
-    // ─────────────────────────────────────────────────────────────
-    // CÓDIGO TEMPORAL (OPCIÓN 1): EXPORTAR SPRITES EN ALTA RESOLUCIÓN
-    // ─────────────────────────────────────────────────────────────
-    scene.time.delayedCall(800, () => {
-        // Generar araña en alta definición (escala 6x)
-        buildSpiderTexture('spider_hd', 0, 6, SPIDER_PAL);
-        
-        const linkSpider = document.createElement('a');
-        linkSpider.download = 'spider_hd.png';
-        linkSpider.href = scene.textures.get('spider_hd').getSourceImage().toDataURL('image/png');
-        linkSpider.click();
-
-        // Generar huevo en alta definición (escala 4x manteniendo pixel art nítido)
-        const eggImg = scene.textures.get('egg').getSourceImage();
-        const canvas = document.createElement('canvas');
-        canvas.width = eggImg.width * 4;
-        canvas.height = eggImg.height * 4;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(eggImg, 0, 0, canvas.width, canvas.height);
-
-        const linkEgg = document.createElement('a');
-        linkEgg.download = 'egg_hd.png';
-        linkEgg.href = canvas.toDataURL('image/png');
-        linkEgg.click();
-    });
-    // ─────────────────────────────────────────────────────────────
-
     coins = this.add.group();
     enemies = this.physics.add.group();
     bullets = this.physics.add.group();
