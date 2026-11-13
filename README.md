@@ -31,7 +31,7 @@ Eres un **mercenario interestelar** de élite. Te han contratado para infiltrart
 
 <div align="center">
 
-| <img src="spider_hd.png" width="90"/> | <img src="egg_hd.png" width="90"/> | <img src="larva_hd.png" width="90"/> | <img src="medusa_hd.png" width="90"/> |
+| <img src="spider_hd.png" width="90"/> | <img src="egg_hd.png" width="90"/> | <img src="larva.png" width="90"/> | <img src="medusa_hd.png" width="90"/> |
 |:---:|:---:|:---:|:---:|
 | **ARÁCNIDO HOSTIL** | **HUEVO BIOLÓGICO** | **LARVA DE CRÁTER** | **MEDUSA RAZOR** |
 | Patrulla el planeta y persigue cualquier intruso detectado | Muestra de alto valor. Requiere corte táctico para extraer | Emerge de los cráteres en frenzy. Territorial, se alimenta de baba y lucha a muerte | Amenaza crítica — *próximamente* |
