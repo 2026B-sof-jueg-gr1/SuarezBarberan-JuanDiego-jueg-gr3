@@ -1,4 +1,4 @@
-<div align="center">
+<div align="center"> 
 
 # ALIEN EGG HUNTER
 
@@ -13,7 +13,7 @@
 
 > *"Un planeta hostil. Especímenes desconocidos. Una misión de recuperación que puede convertirse en una operación de supervivencia."*
 
-**[▶ JUGAR EN ITCH.IO](https://juandiegosuarezepn.itch.io/alien-egg-hunter)** · **[🌐 LANDING PAGE](https://2026b-sof-jueg-gr1.github.io/SuarezBarberan-JuanDiego-jueg-gr3/)**
+**[JUGAR EN ITCH.IO](https://juandiegosuarezepn.itch.io/alien-egg-hunter)** · **[LANDING PAGE](https://2026b-sof-jueg-gr1.github.io/SuarezBarberan-JuanDiego-jueg-gr3/)**
 
 </div>
 
@@ -31,10 +31,10 @@ Eres un **mercenario interestelar** de élite. Te han contratado para infiltrart
 
 <div align="center">
 
-| <img src="spider_hd.png" width="90"/> | <img src="egg_hd.png" width="90"/> | <img src="medusa_hd.png" width="90"/> |
-|:---:|:---:|:---:|
-| **ARÁCNIDO HOSTIL** | **HUEVO BIOLÓGICO** | **MEDUSA RAZOR** |
-| Patrulla el planeta y persigue cualquier intruso detectado | Muestra de alto valor. Requiere corte táctico para extraer | Amenaza crítica — *próximamente* |
+| <img src="spider_hd.png" width="90"/> | <img src="egg_hd.png" width="90"/> | <img src="larva_hd.png" width="90"/> | <img src="medusa_hd.png" width="90"/> |
+|:---:|:---:|:---:|:---:|
+| **ARÁCNIDO HOSTIL** | **HUEVO BIOLÓGICO** | **LARVA DE CRÁTER** | **MEDUSA RAZOR** |
+| Patrulla el planeta y persigue cualquier intruso detectado | Muestra de alto valor. Requiere corte táctico para extraer | Emerge de los cráteres en frenzy. Territorial, se alimenta de baba y lucha a muerte | Amenaza crítica — *próximamente* |
 
 </div>
 
@@ -55,6 +55,9 @@ Acércate a un nido y desliza el mouse (o dedo) de izquierda a derecha para cort
 
 ### La Furia de la Madre
 Al recolectar **más de 3 huevos**, la Madre de las Arañas emerge furiosa desde el cielo. El ambiente se tiñe de rojo, spiders caen desde arriba y brotan de los cráteres del planeta en oleadas.
+
+### Larvas de Cráter
+Al matar la primera araña, las larvas **se ocultan en sus cráteres** y luego emergen en modo caza. Son territoriales: pelean entre sí por la baba del suelo, atacan a las arañas y al jugador. Las más fuertes sobreviven, crecen y entran en **frenzy**.
 
 ### Extracción Orbital
 Presiona `E` para llamar a la nave corporativa. Dependiendo de cuántos huevos llevas:
