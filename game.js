@@ -1,7 +1,7 @@
 // ───────── Constantes del mundo ─────────
 const WORLD_W = 2000;
 const WORLD_H = 1500;
-const MAX_ENEMIES = 35; // Aumentado ligeramente para soportar las salidas de los cráteres
+const MAX_ENEMIES = 35;
 
 const FACE_HAPPY = " ,-^-, \n |^_^| \n '---' ";
 const FACE_DEADPAN = " ,-^-, \n |-_-| \n '---' ";
@@ -30,9 +30,9 @@ let gameStarted = false;
 let introTween1, introTween2, introTween3;
 let landingX = 1000, landingY = 800;
 let ambientOverlay = null;
-let fogOverlay = null; // Capa para la neblina rojiza pesada
+let fogOverlay = null;
 let nests = [];
-let craters = []; // Guardaremos las posiciones de los cráteres y huecos del suelo
+let craters = [];
 
 // Variables de minijuego de corte (Among Us style)
 let cuttingActive = false;
@@ -105,10 +105,8 @@ function create() {
     landingY = Phaser.Math.Between(Math.round(WORLD_H * 0.4), Math.round(WORLD_H * 0.7));
     cam.centerOn(landingX, landingY - 50);
 
-    // FILTRO AMBIENTAL ROJIZO
+    // FILTRO AMBIENTAL ROJIZO Y NEBLINA
     ambientOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff0033, 0.15).setScrollFactor(0).setDepth(9999);
-
-    // NEBLINA ROJIZA DINÁMICA (Efecto de atmósfera espesa)
     fogOverlay = scene.add.rectangle(400, 300, 800, 600, 0xff1144, 0.08).setScrollFactor(0).setDepth(9998);
     scene.tweens.add({
         targets: fogOverlay,
@@ -123,6 +121,34 @@ function create() {
     drawGround();
     ensureSpiderTextures();
     ensureEggTextures();
+
+    // ─────────────────────────────────────────────────────────────
+    // CÓDIGO TEMPORAL (OPCIÓN 1): EXPORTAR SPRITES EN ALTA RESOLUCIÓN
+    // ─────────────────────────────────────────────────────────────
+    scene.time.delayedCall(800, () => {
+        // Generar araña en alta definición (escala 6x)
+        buildSpiderTexture('spider_hd', 0, 6, SPIDER_PAL);
+        
+        const linkSpider = document.createElement('a');
+        linkSpider.download = 'spider_hd.png';
+        linkSpider.href = scene.textures.get('spider_hd').getSourceImage().toDataURL('image/png');
+        linkSpider.click();
+
+        // Generar huevo en alta definición (escala 4x manteniendo pixel art nítido)
+        const eggImg = scene.textures.get('egg').getSourceImage();
+        const canvas = document.createElement('canvas');
+        canvas.width = eggImg.width * 4;
+        canvas.height = eggImg.height * 4;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(eggImg, 0, 0, canvas.width, canvas.height);
+
+        const linkEgg = document.createElement('a');
+        linkEgg.download = 'egg_hd.png';
+        linkEgg.href = canvas.toDataURL('image/png');
+        linkEgg.click();
+    });
+    // ─────────────────────────────────────────────────────────────
 
     coins = this.add.group();
     enemies = this.physics.add.group();
@@ -338,11 +364,10 @@ function drawGround() {
         }
     });
 
-    // CRÁTERES Y HUECOS DEL PLANETA (Registramos sus posiciones para que salgan arañas de ahí)
     for (let i = 0; i < Math.round(10 * A); i++) {
         const cx = rnd(80, W - 80), cy = rnd(80, H - 70);
         const cw = rnd(50, 110), ch = Math.round(cw * 0.45);
-        craters.push({ x: cx, y: cy }); // Guardar posición de hueco
+        craters.push({ x: cx, y: cy });
 
         g.fillStyle(0x0e0206, 0.85);
         g.fillEllipse(cx, cy, cw, ch);
@@ -675,7 +700,6 @@ function destroyEnemy(bullet, enemy) {
     });
 }
 
-// INICIAR MINIJUEGO DE CORTE TIPO AMONG US
 function startCutting(coin) {
     if (cuttingActive || !gameStarted) return;
     cuttingActive = true;
@@ -758,7 +782,6 @@ function closeCuttingUI() {
     cutUIElements = [];
 }
 
-// ───────────────────── MADRE DE LAS ARAÑAS ─────────────────────
 function summonMother() {
     motherActive = true;
 
@@ -816,8 +839,8 @@ function scheduleMotherWave(firstDelay) {
         motherWaveTimer = null;
         if (!motherActive || lives <= 0) return;
         if (!isPaused && extractionPhase !== 2) {
-            spawnBabies(Phaser.Math.Between(2, 3)); // Crías desde arriba
-            spawnFromCraters(Phaser.Math.Between(1, 2)); // Arañas saliendo de los huecos/cráteres del planeta
+            spawnBabies(Phaser.Math.Between(2, 3));
+            spawnFromCraters(Phaser.Math.Between(1, 2));
         }
         scheduleMotherWave();
     });
@@ -839,20 +862,17 @@ function spawnBabies(n) {
     }
 }
 
-// NUEVA FUNCIÓN: Generar arañas furiosas saliendo de los huecos/cráteres del suelo
 function spawnFromCraters(n) {
     if (!motherActive || craters.length === 0) return;
 
     for (let i = 0; i < n; i++) {
         if (enemies.countActive(true) >= MAX_ENEMIES) break;
-        // Elegir un cráter al azar en el mapa
         let crater = Phaser.Utils.Array.GetRandom(craters);
         
         let spider = spawnEnemy(crater.x, crater.y, 0.85);
         spider.setData('active', true);
         spider.setAlpha(0);
 
-        // Efecto de aparición emergiendo del hueco
         scene.tweens.add({
             targets: spider,
             alpha: 1,
