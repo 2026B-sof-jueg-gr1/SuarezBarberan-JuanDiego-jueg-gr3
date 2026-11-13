@@ -1,38 +1,40 @@
 <div align="center">
 
-#  ALIEN EGG HUNTER: EL ENCARGO
+# ALIEN EGG HUNTER: EL ENCARGO
 
-[![Despliegue en GitHub Pages](https://img.shields.io/badge/Estado-Desplegado-success?style=for-the-badge&logo=github)](https://github.com)
-[![Motor](https://img.shields.io/badge/Motor-Phaser%203-orange?style=for-the-badge&logo=javascript)](https://phaser.io)
+[![Estado](https://img.shields.io/badge/ESTADO-OPERATIVO-00ffcc?style=for-the-badge&logo=doom&logoColor=white)](https://github.com)
+[![Motor](https://img.shields.io/badge/MOTOR-PHASER%203-ff1a40?style=for-the-badge&logo=javascript&logoColor=white)](https://phaser.io)
+[![Escuela](https://img.shields.io/badge/EPN-SOFTWARE-ffaa00?style=for-the-badge&logo=codeforces&logoColor=white)](https://www.epn.edu.ec)
 
 </div>
 
 ---
 
 ## Contrato espacial:
-Eres un **mercenario interestelar** de élite. Te han contratado para el trabajo más suicida de la galaxia: infiltrarte en nidos de especies extraterrestres hiperagresivas y saquear sus valiosos huevos exóticos. 
+Eres un **mercenario interestelar** de élite. Te han contratado para el trabajo más suicida de la galaxia: infiltrarte en nidos de especies extraterrestres hiperagresivas, superar el minijuego de corte táctico y saquear valiosos huevos exóticos ($300 por cada uno, hasta un límite de $3,000). 
 
-¿Tu objetivo? **Sobrevivir, esquivar a las criaturas guardianas y acumular el mayor tiempo posible en el sector hostil antes de ser desintegrado.**
+¿Tu objetivo? **Sobrevivir a la neblina rojiza, esquivar a las criaturas que emergen de los cráteres del suelo, y escapar a tiempo con vida.**
 
 ---
 
 ##  Mecánicas de Supervivencia
-* **Movilidad Total:** Usa las flechas del teclado (`↑` `↓` `←` `→`) para esquivar a los enemigos en un mapa dinámico con límites de sector[cite: 15].
-* **Dificultad Progresiva:** Cuanto más tiempo pases robando los huevos, más rápida y peligrosa se vuelve la persecución alienígena[cite: 15].
-* **Sistema de Puntuación:** Cada segundo que logras salir ileso cuenta para tu reporte de misión final[cite: 13, 20].
+- **Movilidad y Fuego:** Usa las flechas del teclado (`↑` `↓` `←` `→`) para moverte y la tecla `F` para disparar proyectiles defensivos.
+- **Minijuego de Corte Táctico:** Acércate a los nidos de huevos e interactúa para iniciar el corte de cápsula estilo *Among Us* moviendo el ratón de lado a lado.
+- **La Furia de la Madre:** Al recolectar más de 3 huevos, la Madre de las Arañas enfurecerá, activando un ambiente de neblina roja intensa donde saldrán enemigos tanto del cielo como de los cráteres del planeta.
+- **Extracción Orbital:** Presiona `E` para solicitar tu rescate corporativo y asegurar tu botín antes de que sea demasiado tarde.
 
 ---
 
-## Stack Tecnológico
-Este proyecto ha sido desarrollado bajo los protocolos de la **Escuela Politécnica Nacional** utilizando tecnología de punta:
-* **Phaser 3:** Framework principal y motor de físicas Arcade[cite: 18].
-* **JavaScript (ES6):** Lógica de movimiento, bucles de juego y control de colisiones[cite: 18].
-* **HTML5 + CSS3:** Estructura visual y diseño responsivo[cite: 18].
-* **GitHub Pages:** Plataforma de despliegue orbital para distribución pública[cite: 2].
+##  Stack Tecnológico
+Este proyecto ha sido desarrollado bajo los protocolos de la **Escuela Politécnica Nacional**:
+- **Phaser 3:** Framework principal y motor de físicas Arcade.
+- **JavaScript (ES6):** Lógica de movimiento, sistemas de partículas y colisiones.
+- **HTML5 + CSS3:** Estructura visual, diseño responsivo y HUD orbital.
+- **GitHub Pages:** Plataforma de despliegue orbital[cite: 2].
 
 ---
 
-## Instalación y Ejecución Local
+##  Instalación y Ejecución Local
 Si deseas clonar y probar el radar de la misión en tu propia terminal local:
 
 ```bash
@@ -42,4 +44,4 @@ git clone [https://github.com/2026B-Sof-Jueg-Gr3/tu-repo-jueg-gr3.git](https://g
 # 2. Entra al directorio del proyecto
 cd tu-repo-jueg-gr3
 
-# 3. Abre con tu editor de código favorito (ej. VS Code) y lanza Live Server
+# 3. Abre con tu editor favorito (ej. VS Code) y ejecuta Live Server
