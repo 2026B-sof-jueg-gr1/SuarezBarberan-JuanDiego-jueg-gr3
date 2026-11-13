@@ -11,9 +11,9 @@
 ---
 
 ## Contrato espacial:
-Eres un **mercenario interestelar** de élite. Te han contratado para el trabajo más suicida de la galaxia: infiltrarte en nidos de especies extraterrestres hiperagresivas, superar el minijuego de corte táctico y saquear valiosos huevos exóticos ($300 por cada uno, hasta un límite de $3,000). 
+Eres un **mercenario interestelar** de élite. Te han contratado para el trabajo más suicida de la galaxia: infiltrarte en nidos de especies extraterrestres hiperagresivas, superar el minijuego de corte táctico y saquear valiosos huevos exóticos.
 
-¿Tu objetivo? **Sobrevivir a la neblina rojiza, esquivar a las criaturas que emergen de los cráteres del suelo, y escapar a tiempo con vida.**
+¿Tu objetivo? **Sobrevivir a las criaturas que emergen y escapar a tiempo con vida.**
 
 ---
 
