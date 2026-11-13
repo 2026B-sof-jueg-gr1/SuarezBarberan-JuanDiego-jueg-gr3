@@ -140,14 +140,8 @@ function create() {
     player.setData('facing', 'right');
     player.setData('isFlipped', false);
 
-    // nave de intro
-    const shipAscii =
-        "   /===\\   \n" +
-        "  [=====]  \n" +
-        "== O O O == ";
-    ship = this.add.text(landingX, landingY-400, shipAscii, {
-        fontFamily:'Courier, monospace', fontSize:'16px', fill:'#00ffff', align:'center'
-    }).setOrigin(0.5);
+    // nave de intro — gráfico procedural
+    ship = buildShipGraphic(this, landingX, landingY-400);
     beam = this.add.rectangle(landingX, landingY-200, 60, 300, 0x00ffff, 0.25).setOrigin(0.5,0);
 
     introTween1 = scene.tweens.add({
@@ -223,7 +217,7 @@ function update(time, delta) {
         }
     }
 
-    if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+    if (spaceKey && Phaser.Input.Keyboard.JustDown(spaceKey)) {
         if (cuttingActive) { cancelCutting(); return; }
         togglePauseGame();
     }
@@ -486,6 +480,51 @@ function drawGround() {
     if (scene.textures.exists('ground')) scene.textures.remove('ground');
     g.generateTexture('ground',W,H); g.destroy();
     scene.add.image(0,0,'ground').setOrigin(0,0).setDepth(-10);
+}
+
+// ──────────────────────────────────────────
+// NAVE DE INTRO (gráfico procedural)
+// ──────────────────────────────────────────
+function buildShipGraphic(sc, x, y) {
+    const g = sc.make.graphics({x:0, y:0, add:false});
+    // fuselaje central
+    g.fillStyle(0x0a3a4a, 1);
+    g.fillRoundedRect(20, 30, 100, 28, 6);
+    // cúpula superior
+    g.fillStyle(0x0d4f66, 1);
+    g.fillEllipse(70, 30, 70, 30);
+    // franja lateral brillante
+    g.fillStyle(0x00e5ff, 0.9);
+    g.fillRect(22, 40, 96, 4);
+    // alas
+    g.fillStyle(0x062030, 1);
+    g.fillTriangle(20,58,  0,70,  40,58);
+    g.fillTriangle(120,58, 140,70, 100,58);
+    // borde ala
+    g.lineStyle(1.5, 0x00e5ff, 0.7);
+    g.lineBetween(20,58, 0,70); g.lineBetween(0,70, 40,58);
+    g.lineBetween(120,58, 140,70); g.lineBetween(140,70, 100,58);
+    // ventanas (3 ojos)
+    [50,70,90].forEach(wx => {
+        g.fillStyle(0x001a2a,1); g.fillCircle(wx,36,7);
+        g.fillStyle(0x00ffcc,0.85); g.fillCircle(wx,36,5);
+        g.fillStyle(0xffffff,0.5); g.fillCircle(wx-2,34,2);
+    });
+    // motor trasero glow
+    g.fillStyle(0x00ffcc, 0.15);
+    g.fillEllipse(70,70,80,22);
+    g.fillStyle(0x00ffcc, 0.6);
+    g.fillEllipse(70,67,40,10);
+    // borde fuselaje
+    g.lineStyle(2, 0x00e5ff, 0.8);
+    g.strokeRoundedRect(20,30,100,28,6);
+
+    if (sc.textures.exists('ship')) sc.textures.remove('ship');
+    g.generateTexture('ship', 140, 80);
+    g.destroy();
+
+    const img = sc.add.image(x, y, 'ship').setOrigin(0.5, 0.5);
+    return img;
 }
 
 // ──────────────────────────────────────────
@@ -846,8 +885,8 @@ function triggeredVictory() {
     scene.add.text(400,330,'Huevos extraídos: '+score+' / 10',{fontFamily:'Courier, monospace',fontSize:'16px',fill:'#ffffff'}).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     scene.add.text(400,370,'Dinero total: $'+money+' / $3000',{fontFamily:'Courier, monospace',fontSize:'18px',fill:'#00ffcc'}).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     const btn=scene.add.text(400,420,'PRESIONA ESPACIO PARA VOLVER A JUGAR',{fontFamily:'Courier, monospace',fontSize:'14px',fill:'#00ff41',backgroundColor:'#222',padding:{x:10,y:5}}).setOrigin(0.5).setScrollFactor(0).setDepth(10001).setInteractive();
-    btn.on('pointerdown',()=>scene.scene.restart());
-    scene.input.keyboard.once('keydown-SPACE',()=>scene.scene.restart());
+    btn.on('pointerdown',()=>{ scene.input.keyboard.removeAllKeys(true); scene.scene.restart(); });
+    scene.input.keyboard.once('keydown-SPACE',()=>{ scene.input.keyboard.removeAllKeys(true); scene.scene.restart(); });
 }
 
 function endGame() {
@@ -862,8 +901,8 @@ function endGame() {
         {fontFamily:'Courier, monospace',fontSize:'12px',fill:'#ff0055',align:'center'})
         .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     const btn=scene.add.text(400,350,'PRESIONA ESPACIO PARA REINTENTAR',{fontFamily:'Courier, monospace',fontSize:'18px',fill:'#ffffff',backgroundColor:'#222',padding:{x:10,y:5}}).setOrigin(0.5).setScrollFactor(0).setDepth(10001).setInteractive();
-    btn.on('pointerdown',()=>scene.scene.restart());
-    scene.input.keyboard.once('keydown-SPACE',()=>scene.scene.restart());
+    btn.on('pointerdown',()=>{ scene.input.keyboard.removeAllKeys(true); scene.scene.restart(); });
+    scene.input.keyboard.once('keydown-SPACE',()=>{ scene.input.keyboard.removeAllKeys(true); scene.scene.restart(); });
 }
 
 // ──────────────────────────────────────────
