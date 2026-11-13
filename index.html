@@ -1,210 +1,577 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alien Egg Hunter: El Encargo</title>
-    <!-- Incluimos Phaser 3 desde CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+    <meta name="theme-color" content="#100909">
+    <meta name="description" content="Alien Egg Hunter: protocolo de supervivencia, recuperación de especímenes y extracción en territorio hostil.">
+
+    <title>Alien Egg Hunter | Expedición 7-B</title>
+
     <style>
         :root {
-            --bg-dark: #1a0508;
-            --accent-red: #ff1a40;
-            --accent-cyan: #00ffcc;
-            --accent-gold: #ffaa00;
-            --text-light: #ffffff;
+            --background: #100909;
+            --surface: #1b1010;
+            --surface-light: #261515;
+            --primary: #e34242;
+            --primary-dark: #8f2525;
+            --text: #e8dddd;
+            --text-muted: #a99494;
+            --border: #512626;
+            --success: #7cce8b;
+            --font-main: 'Courier New', monospace;
         }
 
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            font-family: 'Courier New', Courier, monospace;
-            overflow-x: hidden;
+            background:
+                radial-gradient(ellipse at top, #351414 0%, transparent 55%),
+                var(--background);
+            color: var(--text);
+            font-family: var(--font-main);
+            line-height: 1.7;
         }
+
+        /* Navegación */
 
         header {
-            text-align: center;
-            padding: 40px 20px;
-            background: linear-gradient(180deg, #2b0b14 0%, var(--bg-dark) 100%);
-            border-bottom: 2px solid var(--accent-red);
+            padding: 18px 8%;
+            border-bottom: 1px solid var(--border);
+            background: rgba(16, 9, 9, 0.95);
         }
 
-        h1 {
-            font-size: 2.5rem;
-            color: var(--accent-red);
-            text-shadow: 0 0 10px rgba(255, 26, 64, 0.6);
-            margin-bottom: 10px;
+        .header-content {
+            max-width: 1200px;
+            margin: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
         }
 
-        .subtitle {
-            font-size: 1.1rem;
-            color: var(--accent-cyan);
+        .logo {
+            color: var(--primary);
+            font-size: 1.2rem;
+            font-weight: bold;
             letter-spacing: 2px;
         }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 40px 20px;
+        .status {
+            color: var(--success);
+            font-size: 0.8rem;
         }
 
-        /* Sección del juego */
-        #game-container {
-            display: flex;
-            justify-content: center;
-            margin: 30px 0;
-            border: 3px solid var(--accent-red);
-            box-shadow: 0 0 25px rgba(255, 26, 64, 0.4);
-            background: #000;
+        /* Contenido principal */
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 55px 25px;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 55px 20px;
+            margin-bottom: 35px;
+            border: 1px solid var(--border);
+            background: linear-gradient(
+                145deg,
+                rgba(91, 24, 24, 0.35),
+                rgba(20, 10, 10, 0.8)
+            );
+        }
+
+        .classification {
+            color: var(--primary);
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: clamp(2rem, 6vw, 3.8rem);
+            line-height: 1.2;
+            margin-bottom: 15px;
+            text-shadow: 0 0 18px rgba(227, 66, 66, 0.4);
+        }
+
+        .hero-description {
+            color: var(--text-muted);
+            max-width: 650px;
+            margin: auto;
         }
 
         .section-box {
-            background: rgba(42, 7, 18, 0.6);
-            border: 1px solid #5a2236;
-            padding: 25px;
-            margin-bottom: 30px;
-            border-radius: 4px;
+            padding: 30px;
+            margin-bottom: 25px;
+            background: var(--surface);
+            border: 1px solid var(--border);
         }
 
-        h2 {
-            color: var(--accent-gold);
+        .section-box h2 {
+            color: var(--primary);
+            font-size: 1.25rem;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .section-box p {
+            color: var(--text-muted);
             margin-bottom: 15px;
-            font-size: 1.4rem;
-            border-bottom: 1px dashed #5a2236;
-            padding-bottom: 8px;
         }
 
-        p, li {
-            line-height: 1.6;
-            color: #d6b8c2;
-            margin-bottom: 10px;
+        .section-box strong {
+            color: var(--text);
         }
 
-        ul {
-            list-style-type: square;
-            padding-left: 20px;
+        /* Contrato espacial */
+
+        .contract-data {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
         }
 
-        /* Galería de Assets HD */
+        .data-item {
+            padding: 15px;
+            background: var(--surface-light);
+            border-left: 3px solid var(--primary);
+        }
+
+        .data-item span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-bottom: 5px;
+        }
+
+        .data-item strong {
+            color: #fff;
+        }
+
+        /* Especímenes */
+
         .asset-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
             gap: 20px;
             margin-top: 20px;
-            text-align: center;
         }
 
         .asset-card {
-            background: #120208;
-            border: 1px solid var(--accent-red);
-            padding: 15px;
-            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+            text-align: center;
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            transition: transform 0.25s, border-color 0.25s;
+        }
+
+        .asset-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
         }
 
         .asset-card img {
-            width: 90px;
-            height: 90px;
+            width: 100%;
+            height: 170px;
             object-fit: contain;
+            margin-bottom: 15px;
             image-rendering: pixelated;
-            margin-bottom: 10px;
-            filter: drop-shadow(0 0 8px rgba(255, 77, 121, 0.4));
         }
 
-        .asset-card span {
-            display: block;
-            color: var(--accent-cyan);
-            font-size: 0.9rem;
+        .asset-card h3 {
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-size: 1rem;
         }
 
-        footer {
-            text-align: center;
-            padding: 30px;
-            background: #120208;
-            border-top: 1px solid #3a1624;
-            color: #8a5a6a;
-            font-size: 0.9rem;
+        .asset-card p {
+            font-size: 0.85rem;
+            margin-bottom: 0;
         }
 
-        .badge-container {
+        .asset-card-coming::after {
+            content: "PRÓXIMAMENTE";
+            position: absolute;
+            top: 15px;
+            right: -32px;
+            padding: 5px 35px;
+            background: var(--primary-dark);
+            color: white;
+            font-size: 0.65rem;
+            transform: rotate(35deg);
+        }
+
+        /* Mecánicas */
+
+        .mechanics-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .mechanic {
+            padding: 18px;
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+        }
+
+        .mechanic h3 {
+            color: var(--primary);
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .mechanic p {
+            font-size: 0.85rem;
+            margin-bottom: 0;
+        }
+
+        /* Stack tecnológico */
+
+        .tech-list {
             display: flex;
-            justify-content: center;
+            flex-wrap: wrap;
             gap: 10px;
             margin-top: 15px;
-            flex-wrap: wrap;
+        }
+
+        .tech-item {
+            padding: 8px 14px;
+            color: var(--text);
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        /* Juego */
+
+        #game-container {
+            width: 100%;
+            max-width: 1000px;
+            min-height: 200px;
+            margin: 35px auto 10px;
+            overflow: hidden;
+            border: 2px solid var(--primary-dark);
+            background: #000;
+            box-shadow: 0 0 25px rgba(227, 66, 66, 0.15);
+        }
+
+        #game-container canvas {
+            display: block;
+            max-width: 100%;
+        }
+
+        .game-caption {
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 0.8rem;
+            margin-bottom: 30px;
+        }
+
+        /* Footer */
+
+        footer {
+            padding: 25px 20px;
+            text-align: center;
+            background: #0a0505;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        footer strong {
+            color: var(--primary);
+        }
+
+        /* Adaptación móvil */
+
+        @media (max-width: 600px) {
+            header {
+                padding: 15px 20px;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .container {
+                padding: 30px 15px;
+            }
+
+            .hero {
+                padding: 35px 15px;
+            }
+
+            .section-box {
+                padding: 20px 15px;
+            }
+
+            .asset-card img {
+                height: 140px;
+            }
+
+            #game-container {
+                margin-top: 25px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <header>
-        <h1>ALIEN EGG HUNTER: EL ENCARGO</h1>
-        <div class="subtitle">[ CLASIFICADO // SECTOR HOSTIL EPN ]</div>
-        <div class="badge-container">
-            <img src="https://img.shields.io/badge/Estado-Operativo-00ffcc?style=for-the-badge&logo=doom&logoColor=white" alt="Estado">
-            <img src="https://img.shields.io/badge/Motor-Phaser%203-ff1a40?style=for-the-badge&logo=javascript&logoColor=white" alt="Motor">
-            <img src="https://img.shields.io/badge/Escuela-EPN-ffaa00?style=for-the-badge&logo=codeforces&logoColor=white" alt="EPN">
+        <div class="header-content">
+            <div class="logo">AEH // CORPORATION</div>
+            <div class="status">● SISTEMA OPERATIVO</div>
         </div>
     </header>
 
-    <div class="container">
+    <main class="container">
 
-        <!-- Contenedor del Juego -->
-        <div id="game-container"></div>
+        <!-- Presentación -->
 
-        <div class="section-box">
+        <section class="hero">
+            <p class="classification">EXPEDICIÓN CLASIFICADA // 7-B</p>
+
+            <h1>ALIEN EGG HUNTER</h1>
+
+            <p class="hero-description">
+                Un planeta hostil. Especímenes desconocidos.
+                Una misión de recuperación que puede convertirse
+                en una operación de supervivencia.
+            </p>
+        </section>
+
+        <!-- Contrato espacial -->
+
+        <section class="section-box">
             <h2>// Contrato Espacial</h2>
-            <p>Eres un <strong>mercenario interestelar</strong> de élite. Te han contratado para el trabajo más suicida de la galaxia: infiltrarte en nidos de especies extraterrestres hiperagresivas y saquear sus valiosos huevos exóticos.</p>
-            <p>¿Tu objetivo? <strong>Sobrevivir, esquivar a las criaturas guardianas, superar el minijuego de corte táctico y acumular hasta $3,000 antes de solicitar tu extracción orbital.</strong></p>
-        </div>
 
-        <div class="section-box">
-            <h2>// Mecánicas de Supervivencia</h2>
-            <ul>
-                <li><strong>Movilidad Total:</strong> Usa las flechas del teclado (<code>↑</code> <code>↓</code> <code>←</code> <code>→</code>) para moverte y la tecla <code>F</code> para disparar láseres de cobertura.</li>
-                <li><strong>Extracción Táctico-Corporativa:</strong> Presiona <code>E</code> para llamar a la nave de rescate. Cuantos más huevos acumules, mayor será la bonificación.</li>
-                <li><strong>La Ira de la Madre:</strong> Al superar los 3 huevos recolectados, la Madre de las Arañas despertará, haciendo temblar el planeta y liberando oleadas tanto desde el cielo como desde los cráteres del suelo.</li>
-            </ul>
-        </div>
+            <p>
+                <strong>Cláusula 7-B:</strong>
+                El personal asignado deberá ingresar al territorio
+                de investigación, localizar los especímenes biológicos
+                y recuperar las muestras solicitadas por la corporación.
+            </p>
 
-        <!-- Sección de Assets Oficiales -->
-        <div class="section-box">
-            <h2>// Especímenes Catalogados (Assets Oficiales)</h2>
-            <p>Recursos extraídos directamente del núcleo gráfico del motor de juego:</p>
-            <div class="asset-grid">
-                <div class="asset-card">
-                    <img src="spider_hd.png" alt="Araña Guardiana HD">
-                    <span>Guardiana Biomecánica</span>
+            <p>
+                La supervivencia del personal no garantiza el éxito
+                de la misión. La extracción deberá realizarse siguiendo
+                los protocolos establecidos.
+            </p>
+
+            <div class="contract-data">
+                <div class="data-item">
+                    <span>TIPO DE OPERACIÓN</span>
+                    <strong>Recuperación biológica</strong>
                 </div>
-                <div class="asset-card">
-                    <img src="egg_hd.png" alt="Huevo Exótico HD">
-                    <span>Cápsula de Huevo ($300)</span>
+
+                <div class="data-item">
+                    <span>CLASIFICACIÓN</span>
+                    <strong>Alto riesgo</strong>
+                </div>
+
+                <div class="data-item">
+                    <span>PROTOCOLO</span>
+                    <strong>7-B</strong>
+                </div>
+
+                <div class="data-item">
+                    <span>ESTADO</span>
+                    <strong>En ejecución</strong>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="section-box">
+        <!-- Especímenes catalogados -->
+
+        <section class="section-box">
+            <h2>// Especímenes Catalogados</h2>
+
+            <p>
+                Los siguientes organismos han sido identificados
+                durante las expediciones previas. Evite el contacto
+                directo con cualquier organismo desconocido.
+            </p>
+
+            <div class="asset-grid">
+
+                <article class="asset-card">
+                    <img
+                        src="spider_hd.png"
+                        alt="Representación pixel art de una araña alienígena"
+                    >
+
+                    <h3>ARÁCNIDO HOSTIL</h3>
+
+                    <p>
+                        Organismo territorial que patrulla el entorno
+                        y persigue a cualquier intruso detectado.
+                    </p>
+                </article>
+
+                <article class="asset-card">
+                    <img
+                        src="egg_hd.png"
+                        alt="Representación pixel art de un huevo alienígena"
+                    >
+
+                    <h3>HUEVO BIOLÓGICO</h3>
+
+                    <p>
+                        Muestra de origen desconocido. Requiere
+                        manipulación cuidadosa durante su recuperación.
+                    </p>
+                </article>
+
+                <article class="asset-card asset-card-coming">
+                    <img
+                        src="medusa_hd.png"
+                        alt="Representación pixel art de una criatura alienígena tipo Medusa"
+                    >
+
+                    <h3>MEDUSA RAZOR</h3>
+
+                    <p>
+                        Organismo de amenaza elevada. Su presencia
+                        representa un riesgo crítico para el personal.
+                    </p>
+                </article>
+
+            </div>
+        </section>
+
+        <!-- Mecánicas de supervivencia -->
+
+        <section class="section-box">
+            <h2>// Mecánicas de Supervivencia</h2>
+
+            <p>
+                El personal deberá utilizar sus recursos y habilidades
+                para completar la misión y regresar a la zona de extracción.
+            </p>
+
+            <div class="mechanics-list">
+
+                <article class="mechanic">
+                    <h3>01. Exploración</h3>
+                    <p>
+                        Recorre el terreno para localizar huevos,
+                        enemigos y puntos de interés.
+                    </p>
+                </article>
+
+                <article class="mechanic">
+                    <h3>02. Recolección</h3>
+                    <p>
+                        Recupera las muestras biológicas mediante
+                        el procedimiento de extracción correspondiente.
+                    </p>
+                </article>
+
+                <article class="mechanic">
+                    <h3>03. Combate</h3>
+                    <p>
+                        Utiliza el armamento disponible para defenderte
+                        de los organismos hostiles.
+                    </p>
+                </article>
+
+                <article class="mechanic">
+                    <h3>04. Supervivencia</h3>
+                    <p>
+                        Evita los ataques enemigos y administra
+                        tus recursos durante la expedición.
+                    </p>
+                </article>
+
+                <article class="mechanic">
+                    <h3>05. Extracción</h3>
+                    <p>
+                        Al completar los objetivos, dirígete a la zona
+                        de aterrizaje antes de que termine el tiempo.
+                    </p>
+                </article>
+
+                <article class="mechanic">
+                    <h3>06. Amenaza biológica</h3>
+                    <p>
+                        Mantente alerta ante organismos de mayor
+                        tamaño y comportamiento impredecible.
+                    </p>
+                </article>
+
+            </div>
+        </section>
+
+        <!-- Stack tecnológico -->
+
+        <section class="section-box">
             <h2>// Stack Tecnológico</h2>
-            <p>Desarrollado bajo rigurosos estándares de ingeniería de software en la <strong>Escuela Politécnica Nacional</strong>:</p>
-            <ul>
-                <li><strong>Phaser 3:</strong> Framework principal y motor de físicas Arcade.</li>
-                <li><strong>JavaScript (ES6):</strong> Lógica de juego, bucles y gestión de colisiones.</li>
-                <li><strong>HTML5 + CSS3:</strong> Estructura visual responsiva y HUD dinámico.</li>
-            </ul>
-        </div>
 
-    </div>
+            <p>
+                El proyecto utiliza tecnologías web para desarrollar
+                una experiencia interactiva ejecutada directamente
+                desde el navegador.
+            </p>
+
+            <div class="tech-list">
+                <span class="tech-item">HTML5</span>
+                <span class="tech-item">CSS3</span>
+                <span class="tech-item">JavaScript</span>
+                <span class="tech-item">Phaser 3</span>
+                <span class="tech-item">Canvas API</span>
+            </div>
+        </section>
+
+        <!-- Juego interactivo -->
+
+        <div id="game-container"></div>
+
+        <p class="game-caption">
+            // INICIO DE SIMULACIÓN — PROTOCOLO DE EXPEDICIÓN 7-B
+        </p>
+
+    </main>
 
     <footer>
-        <p>&copy; 2026 Grupo 3 - Formulación y Evaluación de Proyectos de Software | Escuela Politécnica Nacional</p>
+        <p>
+            <strong>ALIEN EGG HUNTER</strong>
+            // EXPEDICIÓN 7-B
+        </p>
+
+        <p>
+            Todos los derechos reservados.
+            Sistema de investigación y recuperación biológica.
+        </p>
     </footer>
 
-    <!-- Cargamos tu script del juego ajustado para correr en el div -->
+    <!-- Phaser 3 -->
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+    <!-- Lógica del videojuego -->
+
     <script src="game.js"></script>
+
 </body>
 </html>
