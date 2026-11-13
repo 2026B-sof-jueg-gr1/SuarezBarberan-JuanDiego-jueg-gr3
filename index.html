@@ -2,194 +2,107 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#100909" />
-    <meta
-      name="description"
-      content="Alien Egg Hunter: protocolo de supervivencia, recuperación de especímenes y extracción en territorio hostil."
-    />
+    <meta name="description" content="Alien Egg Hunter: protocolo de supervivencia, recuperación de especímenes y extracción en territorio hostil." />
     <link rel="stylesheet" href="styles.css" />
     <title>Alien Egg Hunter</title>
   </head>
 
   <body>
-    <header>
-      <div class="header-content">
-        <h1>ALIEN EGG HUNTER</h1>
+
+    <!-- ══════════════════════════════════════
+         HERO FULLSCREEN
+    ══════════════════════════════════════ -->
+    <section class="splash" id="splash">
+      <!-- fondo: planeta + nebulosa generados en CSS -->
+      <div class="splash-bg"></div>
+      <div class="splash-stars"></div>
+      <div class="splash-planet"></div>
+      <div class="splash-glow"></div>
+
+      <!-- mercenario a la derecha -->
+      <img src="mercenario_hd.png" alt="Mercenario" class="splash-char" />
+
+      <!-- texto a la izquierda -->
+      <div class="splash-text">
+        <p class="splash-label">EXPEDICIÓN CLASIFICADA // 7-B</p>
+        <h1 class="splash-title">ALIEN<br/>EGG<br/>HUNTER</h1>
+        <p class="splash-sub">Un planeta hostil. Especímenes desconocidos.<br/>Una misión que puede costar la vida.</p>
+        <a href="https://juandiegosuarezepn.itch.io/alien-egg-hunter" target="_blank" rel="noopener" class="splash-btn">
+          ▶ JUGAR AHORA
+        </a>
+        <p class="splash-hint">↓ desplázate para más información</p>
       </div>
-    </header>
+    </section>
 
+    <!-- ══════════════════════════════════════
+         RESTO DE LA LANDING
+    ══════════════════════════════════════ -->
     <main class="container">
-      <!-- Presentación con el Mercenario -->
-      <section class="hero">
-        <div class="hero-content">
-          <img
-            src="mercenario_hd.png"
-            alt="Mercenario Alienígena"
-            class="hero-image"
-          />
-
-          <div class="hero-text">
-            <p class="classification">EXPEDICIÓN CLASIFICADA // 7-B</p>
-            <p class="hero-description">
-              Un planeta hostil. Especímenes desconocidos. Una misión de
-              recuperación que puede convertirse en una operación de
-              supervivencia.
-            </p>
-            <a
-              href="https://juandiegosuarezepn.itch.io/alien-egg-hunter"
-              target="_blank"
-              rel="noopener"
-              class="play-btn"
-            >
-              ▶ JUGAR AHORA
-            </a>
-          </div>
-        </div>
-      </section>
 
       <!-- Contrato espacial -->
       <section class="section-box">
         <h2>// Contrato Espacial</h2>
-
         <p>
           <strong>Cláusula 7-B:</strong>
           El personal asignado deberá ingresar al territorio de investigación,
           localizar los especímenes biológicos y recuperar las muestras
           solicitadas por la corporación.
         </p>
-
         <p>
           La supervivencia del personal no garantiza el éxito de la misión. La
           extracción deberá realizarse siguiendo los protocolos establecidos.
         </p>
-
         <div class="contract-data">
-          <div class="data-item">
-            <span>TIPO DE OPERACIÓN</span>
-            <strong>Recuperación biológica</strong>
-          </div>
-
-          <div class="data-item">
-            <span>CLASIFICACIÓN</span>
-            <strong>Alto riesgo</strong>
-          </div>
-
-          <div class="data-item">
-            <span>PROTOCOLO</span>
-            <strong>7-B</strong>
-          </div>
-
-          <div class="data-item">
-            <span>ESTADO</span>
-            <strong>En ejecución</strong>
-          </div>
+          <div class="data-item"><span>TIPO DE OPERACIÓN</span><strong>Recuperación biológica</strong></div>
+          <div class="data-item"><span>CLASIFICACIÓN</span><strong>Alto riesgo</strong></div>
+          <div class="data-item"><span>PROTOCOLO</span><strong>7-B</strong></div>
+          <div class="data-item"><span>ESTADO</span><strong>En ejecución</strong></div>
         </div>
       </section>
 
       <!-- Especímenes catalogados -->
       <section class="section-box">
         <h2>// Especímenes Catalogados</h2>
-
-        <p>
-          Los siguientes organismos han sido identificados durante las
-          expediciones previas. Evite el contacto directo con cualquier
-          organismo desconocido.
-        </p>
-
+        <p>Los siguientes organismos han sido identificados durante las expediciones previas. Evite el contacto directo con cualquier organismo desconocido.</p>
         <div class="asset-grid">
           <article class="asset-card">
-            <img
-              src="spider_hd.png"
-              alt="Representación pixel art de una araña alienígena"
-            />
+            <img src="spider_hd.png" alt="Araña alienígena" />
             <h3>ARÁCNIDO HOSTIL</h3>
-            <p>
-              Organismo territorial que patrulla el entorno y persigue a
-              cualquier intruso detectado.
-            </p>
+            <p>Organismo territorial que patrulla el entorno y persigue a cualquier intruso detectado.</p>
           </article>
-
           <article class="asset-card">
-            <img
-              src="egg_hd.png"
-              alt="Representación pixel art de un huevo alienígena"
-            />
+            <img src="egg_hd.png" alt="Huevo alienígena" />
             <h3>HUEVO BIOLÓGICO</h3>
-            <p>
-              Muestra de origen desconocido. Requiere manipulación cuidadosa
-              durante su recuperación.
-            </p>
+            <p>Muestra de origen desconocido. Requiere manipulación cuidadosa durante su recuperación.</p>
           </article>
-
           <article class="asset-card asset-card-coming">
-            <img
-              src="medusa_hd.png"
-              alt="Representación pixel art de una criatura alienígena tipo Medusa"
-            />
+            <img src="medusa_hd.png" alt="Medusa Razor" />
             <h3>MEDUSA RAZOR</h3>
-            <p>
-              Organismo de amenaza elevada. Su presencia representa un riesgo
-              crítico para el personal.
-            </p>
+            <p>Organismo de amenaza elevada. Su presencia representa un riesgo crítico para el personal.</p>
           </article>
         </div>
       </section>
 
-      <!-- Mecánicas de supervivencia -->
+      <!-- Mecánicas -->
       <section class="section-box">
         <h2>// Mecánicas de Supervivencia</h2>
-
-        <p>
-          El personal deberá utilizar sus recursos y habilidades para completar
-          la misión y regresar a la zona de extracción.
-        </p>
-
+        <p>El personal deberá utilizar sus recursos y habilidades para completar la misión y regresar a la zona de extracción.</p>
         <div class="mechanics-list">
-          <article class="mechanic">
-            <h3>01. Exploración</h3>
-            <p>Recorre el terreno para localizar huevos, enemigos y puntos de interés.</p>
-          </article>
-
-          <article class="mechanic">
-            <h3>02. Recolección</h3>
-            <p>Recupera las muestras biológicas mediante el procedimiento de extracción correspondiente.</p>
-          </article>
-
-          <article class="mechanic">
-            <h3>03. Combate</h3>
-            <p>Utiliza el armamento disponible para defenderte de los organismos hostiles.</p>
-          </article>
-
-          <article class="mechanic">
-            <h3>04. Supervivencia</h3>
-            <p>Evita los ataques enemigos y administra tus recursos durante la expedición.</p>
-          </article>
-
-          <article class="mechanic">
-            <h3>05. Extracción</h3>
-            <p>Al completar los objetivos, dirígete a la zona de aterrizaje antes de que termine el tiempo.</p>
-          </article>
-
-          <article class="mechanic">
-            <h3>06. Amenaza biológica</h3>
-            <p>Mantente alerta ante organismos de mayor tamaño y comportamiento impredecible.</p>
-          </article>
+          <article class="mechanic"><h3>01. Exploración</h3><p>Recorre el terreno para localizar huevos, enemigos y puntos de interés.</p></article>
+          <article class="mechanic"><h3>02. Recolección</h3><p>Recupera las muestras biológicas mediante el procedimiento de extracción correspondiente.</p></article>
+          <article class="mechanic"><h3>03. Combate</h3><p>Utiliza el armamento disponible para defenderte de los organismos hostiles.</p></article>
+          <article class="mechanic"><h3>04. Supervivencia</h3><p>Evita los ataques enemigos y administra tus recursos durante la expedición.</p></article>
+          <article class="mechanic"><h3>05. Extracción</h3><p>Al completar los objetivos, dirígete a la zona de aterrizaje antes de que termine el tiempo.</p></article>
+          <article class="mechanic"><h3>06. Amenaza biológica</h3><p>Mantente alerta ante organismos de mayor tamaño y comportamiento impredecible.</p></article>
         </div>
       </section>
 
-      <!-- Stack tecnológico -->
+      <!-- Stack -->
       <section class="section-box">
         <h2>// Stack Tecnológico</h2>
-
-        <p>
-          El proyecto utiliza tecnologías web para desarrollar una experiencia
-          interactiva ejecutada directamente desde el navegador.
-        </p>
-
+        <p>El proyecto utiliza tecnologías web para desarrollar una experiencia interactiva ejecutada directamente desde el navegador.</p>
         <div class="tech-list">
           <span class="tech-item">HTML5</span>
           <span class="tech-item">CSS3</span>
@@ -199,30 +112,21 @@
         </div>
       </section>
 
-      <!-- CTA Itch.io -->
+      <!-- CTA final -->
       <section class="section-box itch-cta">
         <h2>// Jugar</h2>
         <p>El juego está disponible de forma gratuita en Itch.io. No requiere descarga.</p>
-        <a
-          href="https://juandiegosuarezepn.itch.io/alien-egg-hunter"
-          target="_blank"
-          rel="noopener"
-          class="play-btn"
-        >
+        <a href="https://juandiegosuarezepn.itch.io/alien-egg-hunter" target="_blank" rel="noopener" class="play-btn">
           ▶ ABRIR EN ITCH.IO
         </a>
       </section>
+
     </main>
 
     <footer>
-      <p>
-        <strong>ALIEN EGG HUNTER</strong>
-        // EXPEDICIÓN 7-B
-      </p>
-      <p>
-        Todos los derechos reservados. Sistema de investigación y recuperación
-        biológica.
-      </p>
+      <p><strong>ALIEN EGG HUNTER</strong> // EXPEDICIÓN 7-B</p>
+      <p>Todos los derechos reservados. Sistema de investigación y recuperación biológica.</p>
     </footer>
+
   </body>
 </html>
