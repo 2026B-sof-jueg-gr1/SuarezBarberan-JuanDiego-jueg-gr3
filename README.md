@@ -1,6 +1,6 @@
 <div align="center">
 
-# ALIEN EGG HUNTER: EL ENCARGO
+# ALIEN EGG HUNTER
 
 [![Estado](https://img.shields.io/badge/ESTADO-OPERATIVO-00ffcc?style=for-the-badge&logo=doom&logoColor=white)](https://github.com)
 [![Motor](https://img.shields.io/badge/MOTOR-PHASER%203-ff1a40?style=for-the-badge&logo=javascript&logoColor=white)](https://phaser.io)
