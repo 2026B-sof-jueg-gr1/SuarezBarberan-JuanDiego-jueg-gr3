@@ -2,13 +2,209 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mi Juego Phaser</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alien Egg Hunter: El Encargo</title>
+    <!-- Incluimos Phaser 3 desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body { margin: 0; display: flex; justify-content: center; background: #2d2d2d; }
+        :root {
+            --bg-dark: #1a0508;
+            --accent-red: #ff1a40;
+            --accent-cyan: #00ffcc;
+            --accent-gold: #ffaa00;
+            --text-light: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Courier New', Courier, monospace;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(180deg, #2b0b14 0%, var(--bg-dark) 100%);
+            border-bottom: 2px solid var(--accent-red);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--accent-red);
+            text-shadow: 0 0 10px rgba(255, 26, 64, 0.6);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--accent-cyan);
+            letter-spacing: 2px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Sección del juego */
+        #game-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            border: 3px solid var(--accent-red);
+            box-shadow: 0 0 25px rgba(255, 26, 64, 0.4);
+            background: #000;
+        }
+
+        .section-box {
+            background: rgba(42, 7, 18, 0.6);
+            border: 1px solid #5a2236;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        h2 {
+            color: var(--accent-gold);
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+            border-bottom: 1px dashed #5a2236;
+            padding-bottom: 8px;
+        }
+
+        p, li {
+            line-height: 1.6;
+            color: #d6b8c2;
+            margin-bottom: 10px;
+        }
+
+        ul {
+            list-style-type: square;
+            padding-left: 20px;
+        }
+
+        /* Galería de Assets HD */
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .asset-card {
+            background: #120208;
+            border: 1px solid var(--accent-red);
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .asset-card img {
+            width: 90px;
+            height: 90px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 8px rgba(255, 77, 121, 0.4));
+        }
+
+        .asset-card span {
+            display: block;
+            color: var(--accent-cyan);
+            font-size: 0.9rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            background: #120208;
+            border-top: 1px solid #3a1624;
+            color: #8a5a6a;
+            font-size: 0.9rem;
+        }
+
+        .badge-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
+
+    <header>
+        <h1>ALIEN EGG HUNTER: EL ENCARGO</h1>
+        <div class="subtitle">[ CLASIFICADO // SECTOR HOSTIL EPN ]</div>
+        <div class="badge-container">
+            <img src="https://img.shields.io/badge/Estado-Operativo-00ffcc?style=for-the-badge&logo=doom&logoColor=white" alt="Estado">
+            <img src="https://img.shields.io/badge/Motor-Phaser%203-ff1a40?style=for-the-badge&logo=javascript&logoColor=white" alt="Motor">
+            <img src="https://img.shields.io/badge/Escuela-EPN-ffaa00?style=for-the-badge&logo=codeforces&logoColor=white" alt="EPN">
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- Contenedor del Juego -->
+        <div id="game-container"></div>
+
+        <div class="section-box">
+            <h2>// Contrato Espacial</h2>
+            <p>Eres un <strong>mercenario interestelar</strong> de élite. Te han contratado para el trabajo más suicida de la galaxia: infiltrarte en nidos de especies extraterrestres hiperagresivas y saquear sus valiosos huevos exóticos.</p>
+            <p>¿Tu objetivo? <strong>Sobrevivir, esquivar a las criaturas guardianas, superar el minijuego de corte táctico y acumular hasta $3,000 antes de solicitar tu extracción orbital.</strong></p>
+        </div>
+
+        <div class="section-box">
+            <h2>// Mecánicas de Supervivencia</h2>
+            <ul>
+                <li><strong>Movilidad Total:</strong> Usa las flechas del teclado (<code>↑</code> <code>↓</code> <code>←</code> <code>→</code>) para moverte y la tecla <code>F</code> para disparar láseres de cobertura.</li>
+                <li><strong>Extracción Táctico-Corporativa:</strong> Presiona <code>E</code> para llamar a la nave de rescate. Cuantos más huevos acumules, mayor será la bonificación.</li>
+                <li><strong>La Ira de la Madre:</strong> Al superar los 3 huevos recolectados, la Madre de las Arañas despertará, haciendo temblar el planeta y liberando oleadas tanto desde el cielo como desde los cráteres del suelo.</li>
+            </ul>
+        </div>
+
+        <!-- Sección de Assets Oficiales -->
+        <div class="section-box">
+            <h2>// Especímenes Catalogados (Assets Oficiales)</h2>
+            <p>Recursos extraídos directamente del núcleo gráfico del motor de juego:</p>
+            <div class="asset-grid">
+                <div class="asset-card">
+                    <img src="spider_hd.png" alt="Araña Guardiana HD">
+                    <span>Guardiana Biomecánica</span>
+                </div>
+                <div class="asset-card">
+                    <img src="egg_hd.png" alt="Huevo Exótico HD">
+                    <span>Cápsula de Huevo ($300)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <h2>// Stack Tecnológico</h2>
+            <p>Desarrollado bajo rigurosos estándares de ingeniería de software en la <strong>Escuela Politécnica Nacional</strong>:</p>
+            <ul>
+                <li><strong>Phaser 3:</strong> Framework principal y motor de físicas Arcade.</li>
+                <li><strong>JavaScript (ES6):</strong> Lógica de juego, bucles y gestión de colisiones.</li>
+                <li><strong>HTML5 + CSS3:</strong> Estructura visual responsiva y HUD dinámico.</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Grupo 3 - Formulación y Evaluación de Proyectos de Software | Escuela Politécnica Nacional</p>
+    </footer>
+
+    <!-- Cargamos tu script del juego ajustado para correr en el div -->
     <script src="game.js"></script>
 </body>
 </html>
