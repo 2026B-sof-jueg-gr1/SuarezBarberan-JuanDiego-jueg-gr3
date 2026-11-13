@@ -283,16 +283,43 @@ function update(time, delta) {
         extractionText.setText('[E] Solicitar Extracción');
     }
 
-    // láser de apoyo corporativo
+    // láser de apoyo corporativo — ataca arañas Y larvas
     if (corporateHelpActive && extractionShip) {
+        const shipPos = { x: extractionShip.x, y: extractionShip.y };
+        // arañas
         enemies.getChildren().forEach(e => {
-            if (e.active && Phaser.Math.Distance.Between(extractionShip.x, extractionShip.y, e.x, e.y) < 250) {
+            if (e.active && Phaser.Math.Distance.Between(shipPos.x, shipPos.y, e.x, e.y) < 250) {
                 if (Math.random() < 0.1) {
-                    const laser = scene.add.text(extractionShip.x, extractionShip.y, 'v', {fontFamily:'Courier', fontSize:'14px', fill:'#00ffff'});
+                    const laser = scene.add.text(shipPos.x, shipPos.y, 'v', {fontFamily:'Courier', fontSize:'14px', fill:'#00ffff'});
                     scene.physics.add.existing(laser);
                     scene.physics.moveToObject(laser, e, 600);
                     scene.physics.add.overlap(laser, e, (l,en) => { l.destroy(); en.destroy(); });
                 }
+            }
+        });
+        // larvas
+        freeLarvae.slice().forEach(larva => {
+            if (!larva.g.active || larva.state === 'dead') return;
+            if (Phaser.Math.Distance.Between(shipPos.x, shipPos.y, larva.g.x, larva.g.y) < 300) {
+                if (Math.random() < 0.08) {
+                    const laser = scene.add.text(shipPos.x, shipPos.y, 'v', {fontFamily:'Courier', fontSize:'14px', fill:'#00ffff'}).setDepth(2600);
+                    scene.physics.add.existing(laser);
+                    scene.physics.moveToObject(laser, larva.g, 600);
+                    // colisión manual en update (physics.add.overlap no funciona con Graphics)
+                    laser.setData('targetLarva', larva);
+                    laser.setData('isCorporateLaser', true);
+                }
+            }
+        });
+        // resolver impactos de láseres corporativos sobre larvas
+        scene.children.list.slice().forEach(obj => {
+            if (!obj.active || !obj.getData || !obj.getData('isCorporateLaser')) return;
+            const larva = obj.getData('targetLarva');
+            if (!larva || larva.state === 'dead' || !larva.g.active) { obj.destroy(); return; }
+            if (Phaser.Math.Distance.Between(obj.x, obj.y, larva.g.x, larva.g.y) < 18) {
+                obj.destroy();
+                larva.hp--;
+                if (larva.hp <= 0) explodeLarva(larva);
             }
         });
     }
@@ -890,19 +917,31 @@ function tickLarva(larva) {
                 larva.vx = 0; larva.vy = 0;
                 larva.state = 'eating';
                 larva.target = null;
-                const t = scene.add.text(g.x, g.y-30,'¡NOM!',{fontFamily:'Courier',fontSize:'13px',fill:'#44ff44',stroke:'#000',strokeThickness:3}).setOrigin(0.5).setDepth(25000);
+                larva.currentSlime = sp; // guardar referencia para el crecimiento
+                // marcar baba como parcialmente consumida si aún está fresca
+                const freshVal = sp.freshValue !== undefined ? sp.freshValue : 1.0;
+                sp.freshValue = 0.1; // próxima larva solo saca el 1%
+                const nomColor = freshVal > 0.5 ? '#44ff44' : '#888844';
+                const nomText  = freshVal > 0.5 ? '¡NOM!' : '…nom';
+                const t = scene.add.text(g.x, g.y-30, nomText, {fontFamily:'Courier',fontSize:'13px',fill:nomColor,stroke:'#000',strokeThickness:3}).setOrigin(0.5).setDepth(25000);
                 scene.tweens.add({targets:t, y:t.y-25, alpha:0, duration:700, onComplete:()=>t.destroy()});
-                // timer de fin de comida
+                // timer de fin de comida — crecimiento proporcional a la frescura
                 larva.eatTimer = scene.time.delayedCall(Phaser.Math.Between(2500,4500), ()=>{
                     larva.eatTimer = null;
                     if (!g.active || larva.state==='dead') return;
                     larva.slimed = false;
                     larva.frenzy = true;
-                    larva.scale = Math.min(larva.scale * 1.18, 2.8); // creció
+                    // 10% de escala si baba fresca, 1% si ya fue comida
+                    const growth = freshVal > 0.5 ? 0.10 : 0.01;
+                    const MAX_SCALE = 3.5;
+                    larva.scale = Math.min(larva.scale * (1 + growth), MAX_SCALE);
+                    larva.currentSlime = null;
                     larva.state = 'hunting';
-                    const t2 = scene.add.text(g.x, g.y-35,'¡FURIA!',{fontFamily:'Courier',fontSize:'14px',fill:'#ff4400',stroke:'#000',strokeThickness:3}).setOrigin(0.5).setDepth(25000);
-                    scene.tweens.add({targets:t2, y:t2.y-30, alpha:0, duration:800, onComplete:()=>t2.destroy()});
-                    scene.cameras.main.shake(180, 0.005);
+                    if (freshVal > 0.5) {
+                        const t2 = scene.add.text(g.x, g.y-35,'¡FURIA!',{fontFamily:'Courier',fontSize:'14px',fill:'#ff4400',stroke:'#000',strokeThickness:3}).setOrigin(0.5).setDepth(25000);
+                        scene.tweens.add({targets:t2, y:t2.y-30, alpha:0, duration:800, onComplete:()=>t2.destroy()});
+                        scene.cameras.main.shake(180, 0.005);
+                    }
                 });
                 break;
             }
@@ -956,7 +995,7 @@ function resolveChargeImpact(larva) {
         const eSize = tgt.getData('sizeMul') || 1;
         if (larva.scale >= eSize * 0.75) {
             leaveCorpse(tgt);
-            larva.scale = Math.min(larva.scale * 1.1, 2.8);
+            larva.scale = Math.min(larva.scale * 1.10, 3.5); // +10% por araña
             const t = scene.add.text(g.x, g.y-28,'¡DEVORADA!',{fontFamily:'Courier',fontSize:'11px',fill:'#ff6600',stroke:'#000',strokeThickness:2}).setOrigin(0.5).setDepth(25000);
             scene.tweens.add({targets:t, y:t.y-20, alpha:0, duration:600, onComplete:()=>t.destroy()});
         } else {
@@ -973,7 +1012,7 @@ function resolveChargeImpact(larva) {
         const other = tgt;
         scene.tweens.add({targets:[g, other.g], x:'+='+Phaser.Math.Between(-12,12), duration:70, yoyo:true, repeat:4});
         if (larva.scale >= other.scale) {
-            larva.scale = Math.min(larva.scale * 1.22, 3.0);
+            larva.scale = Math.min(larva.scale * 1.10, 3.5); // +10% por victoria
             larva.hp = Math.min(larva.hp+1, 5);
             larva.frenzy = true;
             explodeLarva(other);
