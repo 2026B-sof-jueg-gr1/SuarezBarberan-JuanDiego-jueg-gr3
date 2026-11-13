@@ -11,8 +11,13 @@ const MOTHER_PAL = { leg: 0x3a0a14, accent: 0xff2244, joint: 0xff6677, body: 0x1
 
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    parent: 'game-container', // <--- AQUI SE INYECTA EN EL CUADRO NEGRO
+    scale: {
+        mode: Phaser.Scale.FIT, // Se adapta a la pantalla
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 600
+    },
     backgroundColor: '#1a0508',
     physics: { default: 'arcade' },
     scene: { create, update }
@@ -64,6 +69,11 @@ let mother = null, motherGlow = null;
 let motherFrame = 0;
 let motherAnimEvent = null, motherWaveTimer = null;
 
+// --- VARIABLES TÁCTILES ---
+let joystickBase, joystickThumb, btnShoot, btnExtract, btnPause;
+let joystickVector = { x: 0, y: 0 };
+let joystickActive = false;
+
 function create() {
     scene = this;
 
@@ -96,6 +106,8 @@ function create() {
     motherWaveTimer = null;
     nests = [];
     craters = [];
+    joystickVector = { x: 0, y: 0 };
+    joystickActive = false;
 
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
     const cam = this.cameras.main;
@@ -214,6 +226,7 @@ function create() {
     timerText = this.add.text(16, 120, '', { ...hudStyle, fontSize: '16px', fill: '#ffaa00' }).setScrollFactor(0).setDepth(6000);
 
     createMinimap();
+    crearControlesTactiles(); // <--- CREAMOS LOS BOTONES DEL CELULAR
 
     this.physics.add.overlap(player, enemies, hitEnemy);
     this.physics.add.overlap(bullets, enemies, destroyEnemy);
@@ -223,6 +236,7 @@ function create() {
     attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.KeyF);
     extractKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
+    // Evento de mouse/arrastre para el minijuego de corte
     scene.input.on('pointermove', (pointer) => {
         if (!cuttingActive) return;
 
@@ -234,6 +248,100 @@ function create() {
             }
         }
         lastMouseX = pointer.x;
+    });
+}
+
+function crearControlesTactiles() {
+    const depthUI = 10000;
+
+    // Joystick virtual (Izquierda)
+    joystickBase = scene.add.circle(120, 480, 60, 0xffffff, 0.15).setScrollFactor(0).setDepth(depthUI).setInteractive();
+    joystickThumb = scene.add.circle(120, 480, 30, 0xffffff, 0.4).setScrollFactor(0).setDepth(depthUI);
+
+    joystickBase.on('pointerdown', (pointer) => {
+        joystickActive = true;
+    });
+
+    scene.input.on('pointermove', (pointer) => {
+        if (!joystickActive || !pointer.isDown) return;
+        
+        let dx = pointer.x - joystickBase.x;
+        let dy = pointer.y - joystickBase.y;
+        let dist = Math.hypot(dx, dy);
+        let maxDist = 60;
+
+        if (dist > maxDist) {
+            dx = (dx / dist) * maxDist;
+            dy = (dy / dist) * maxDist;
+        }
+
+        joystickThumb.setPosition(joystickBase.x + dx, joystickBase.y + dy);
+        joystickVector.x = dx / maxDist;
+        joystickVector.y = dy / maxDist;
+    });
+
+    scene.input.on('pointerup', () => {
+        joystickActive = false;
+        joystickThumb.setPosition(joystickBase.x, joystickBase.y);
+        joystickVector = { x: 0, y: 0 };
+    });
+
+    // Botón Disparar (Derecha abajo)
+    btnShoot = scene.add.circle(720, 500, 45, 0xff1a40, 0.4).setScrollFactor(0).setDepth(depthUI).setStrokeStyle(2, 0xff1a40);
+    scene.add.text(720, 500, 'F', { fontSize: '24px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(depthUI + 1);
+    btnShoot.setInteractive();
+    btnShoot.on('pointerdown', () => { shootBullet(); });
+
+    // Botón Extracción (Derecha arriba)
+    btnExtract = scene.add.circle(720, 380, 35, 0x00ffff, 0.4).setScrollFactor(0).setDepth(depthUI).setStrokeStyle(2, 0x00ffff);
+    scene.add.text(720, 380, 'E', { fontSize: '20px', fill: '#fff', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(depthUI + 1);
+    btnExtract.setInteractive();
+    btnExtract.on('pointerdown', () => { triggerExtraction(); });
+
+    // Botón Pausa (Arriba al centro)
+    btnPause = scene.add.text(400, 30, '||', { fontSize: '24px', fill: '#fff', fontFamily: 'Courier', backgroundColor: '#333', padding: {x: 15, y: 5} }).setOrigin(0.5).setScrollFactor(0).setDepth(depthUI).setInteractive();
+    btnPause.on('pointerdown', () => {
+        // Simulamos la tecla espacio para pausar/despausar
+        isPaused = !isPaused;
+        if (isPaused) {
+            scene.physics.pause();
+            if (introTween1) introTween1.pause();
+            if (introTween2) introTween2.pause();
+            if (introTween3) introTween3.pause();
+
+            let bgOverlay = scene.add.rectangle(400, 300, 800, 600, 0x000000, 0.75).setScrollFactor(0).setDepth(10000);
+            pauseElements.push(bgOverlay);
+
+            const pauseArt = 
+                "  ____   _   _ ____   ____      _    \n" +
+                " |  _ \\ / \\ | / ___| / ___|    / \\   \n" +
+                " | |_) / _ \\| \\___ \\ \\___ \\   / _ \\  \n" +
+                " |  __/ ___ \\ |___) | ___) | / ___ \\ \n" +
+                " |_| /_/   \\_\\____/ |____/ /_/   \\_\\";
+
+            let asciiTitle = scene.add.text(400, 250, pauseArt, {
+                fontFamily: 'Courier, monospace',
+                fontSize: '16px',
+                fill: '#00ff41',
+                align: 'center'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+            pauseElements.push(asciiTitle);
+
+            let subText = scene.add.text(400, 370, '- TOCA PARA CONTINUAR -', {
+                fontFamily: 'Courier, monospace',
+                fontSize: '18px',
+                fill: '#ffffff'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+            pauseElements.push(subText);
+        } else {
+            scene.physics.resume();
+            if (introTween1) introTween1.resume();
+            if (introTween2) introTween2.resume();
+            if (introTween3) introTween3.resume();
+
+            pauseElements.forEach(element => element.destroy());
+            pauseElements = [];
+        }
     });
 }
 
@@ -686,7 +794,7 @@ function startCutting(coin) {
 
     let bgBox = scene.add.rectangle(400, 300, 450, 250, 0x05050a, 0.95).setStrokeStyle(3, 0xff1a40).setScrollFactor(0).setDepth(20000);
     let title = scene.add.text(400, 200, '>>> CORTE DE CÁPSULA TÁCTICA <<<', { fontSize: '14px', fill: '#ff4d79', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(20001);
-    let instruction = scene.add.text(400, 230, 'Mueve el mouse de izquierda a derecha', { fontSize: '12px', fill: '#ffffff', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(20001);
+    let instruction = scene.add.text(400, 230, 'Desliza el dedo de izquierda a derecha', { fontSize: '12px', fill: '#ffffff', fontFamily: 'Courier' }).setOrigin(0.5).setScrollFactor(0).setDepth(20001);
     
     let barBg = scene.add.rectangle(400, 300, 300, 24, 0x222222).setStrokeStyle(1, 0xffffff).setScrollFactor(0).setDepth(20000);
     let barFill = scene.add.rectangle(250, 300, 0, 20, 0xff1a40).setOrigin(0, 0.5).setScrollFactor(0).setDepth(20001);
@@ -1052,12 +1160,17 @@ function triggeredVictory() {
         fill: '#00ffcc'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
-    scene.add.text(400, 420, 'Presiona ESPACIO para volver a jugar', {
+    let btnRestart = scene.add.text(400, 420, 'TOCA AQUÍ PARA VOLVER A JUGAR', {
         fontFamily: 'Courier, monospace',
         fontSize: '14px',
-        fill: '#00ff41'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+        fill: '#00ff41',
+        backgroundColor: '#222',
+        padding: {x: 10, y: 5}
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001).setInteractive();
 
+    btnRestart.on('pointerdown', () => scene.scene.restart());
+    
+    // Mantenemos la opción del teclado por si acaso
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
 
@@ -1081,11 +1194,15 @@ function endGame() {
         align: 'center'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 
-    scene.add.text(400, 350, 'Presiona ESPACIO para reintentar', {
+    let btnRetry = scene.add.text(400, 350, 'TOCA AQUÍ PARA REINTENTAR', {
         fontFamily: 'Courier, monospace',
         fontSize: '18px',
-        fill: '#ffffff'
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+        fill: '#ffffff',
+        backgroundColor: '#222',
+        padding: {x: 10, y: 5}
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(10001).setInteractive();
+
+    btnRetry.on('pointerdown', () => scene.scene.restart());
 
     scene.input.keyboard.once('keydown-SPACE', () => scene.scene.restart());
 }
@@ -1095,14 +1212,39 @@ function update(time, delta) {
 
     drawMinimap();
 
+    // Movimiento táctil
+    if (joystickActive || Math.abs(joystickVector.x) > 0.1 || Math.abs(joystickVector.y) > 0.1) {
+        // Si se mueve mientras corta, cancelar corte
+        if (cuttingActive && (Math.abs(joystickVector.x) > 0.5 || Math.abs(joystickVector.y) > 0.5)) {
+            cancelCutting();
+        }
+        
+        // Si no está pausado ni extrayendo
+        if (!isPaused && gameStarted && extractionPhase !== 2 && !cuttingActive) {
+            player.body.setVelocity(joystickVector.x * 300, joystickVector.y * 300);
+            if (joystickVector.x > 0.1) player.setData('facing', 'right');
+            else if (joystickVector.x < -0.1) player.setData('facing', 'left');
+        }
+    }
+
+    // El resto de la lógica de teclado (por si juegan en PC)
     if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
         if (cuttingActive) {
             cancelCutting();
             return;
         }
 
-        isPaused = !isPaused;
+        // La pausa ya se maneja con el botón táctil, pero dejamos la tecla por retrocompatibilidad
         if (isPaused) {
+            isPaused = false;
+            scene.physics.resume();
+            if (introTween1) introTween1.resume();
+            if (introTween2) introTween2.resume();
+            if (introTween3) introTween3.resume();
+            pauseElements.forEach(element => element.destroy());
+            pauseElements = [];
+        } else {
+            isPaused = true;
             scene.physics.pause();
             if (introTween1) introTween1.pause();
             if (introTween2) introTween2.pause();
@@ -1132,15 +1274,6 @@ function update(time, delta) {
                 fill: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
             pauseElements.push(subText);
-
-        } else {
-            scene.physics.resume();
-            if (introTween1) introTween1.resume();
-            if (introTween2) introTween2.resume();
-            if (introTween3) introTween3.resume();
-
-            pauseElements.forEach(element => element.destroy());
-            pauseElements = [];
         }
     }
 
@@ -1197,6 +1330,7 @@ function update(time, delta) {
             if (cutUIElements[4]) {
                 cutUIElements[4].width = Math.min(300, (cutProgress / 100) * 300);
             }
+            // Si usan teclado, cancelar corte
             if (cursors.left.isDown || cursors.right.isDown || cursors.up.isDown || cursors.down.isDown) {
                 cancelCutting();
             }
@@ -1206,18 +1340,21 @@ function update(time, delta) {
 
     player.body.setVelocity(0);
     
-    if (cursors.left.isDown) {
-        player.body.setVelocityX(-300);
-        player.setData('facing', 'left');
-    } else if (cursors.right.isDown) {
-        player.body.setVelocityX(300);
-        player.setData('facing', 'right');
-    }
+    // Si no está usando el joystick, permitir teclado
+    if (!joystickActive && Math.abs(joystickVector.x) < 0.1 && Math.abs(joystickVector.y) < 0.1) {
+        if (cursors.left.isDown) {
+            player.body.setVelocityX(-300);
+            player.setData('facing', 'left');
+        } else if (cursors.right.isDown) {
+            player.body.setVelocityX(300);
+            player.setData('facing', 'right');
+        }
 
-    if (cursors.up.isDown) {
-        player.body.setVelocityY(-300);
-    } else if (cursors.down.isDown) {
-        player.body.setVelocityY(300);
+        if (cursors.up.isDown) {
+            player.body.setVelocityY(-300);
+        } else if (cursors.down.isDown) {
+            player.body.setVelocityY(300);
+        }
     }
 
     const pc = player.body.center;
