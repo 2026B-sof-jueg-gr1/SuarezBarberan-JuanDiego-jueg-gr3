@@ -9,7 +9,7 @@
 
 <br/>
 
-<img src="assets/mercenario_hd.png" alt="Mercenario" width="160"/>
+<img src="./assets/images/mercenario_hd.png" alt="Mercenario" width="160"/>
 
 > *"Un planeta hostil. Especímenes desconocidos. Una misión de recuperación que puede convertirse en una operación de supervivencia."*
 
@@ -31,7 +31,7 @@ Eres un **mercenario interestelar** de élite. Te han contratado para infiltrart
 
 <div align="center">
 
-| <img src="assets/spider_hd.png" width="90"/> | <img src="assets/egg_hd.png" width="90"/> | <img src="assets/larva.png" width="90"/> | <img src="assets/medusa_hd.png" width="90"/> |
+| <img src="assets/images/spider_hd.png" width="90"/> | <img src="assets/images/egg_hd.png" width="90"/> | <img src="assets/images/larva.png" width="90"/> | <img src="assets/images/medusa_hd.png" width="90"/> |
 |:---:|:---:|:---:|:---:|
 | **ARÁCNIDO HOSTIL** | **HUEVO BIOLÓGICO** | **LARVA DE CRÁTER** | **MEDUSA RAZOR** |
 | Patrulla el planeta y persigue cualquier intruso detectado | Muestra de alto valor. Requiere corte táctico para extraer | Emerge de los cráteres en frenzy. Territorial, se alimenta de baba y lucha a muerte | Amenaza crítica — *próximamente* |
