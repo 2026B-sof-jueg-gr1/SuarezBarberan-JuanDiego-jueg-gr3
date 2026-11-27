@@ -1,0 +1,34 @@
+name: Deploy a itch.io
+
+# Se ejecuta en cada push a main que toque la carpeta del juego,
+# y también a mano desde la pestaña Actions (workflow_dispatch).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "game/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+env:
+  # Formato: usuario/juego:canal  (el canal html5 es el que itch.io juega en el navegador)
+  ITCH_TARGET: juandiegosuarezepn/alien-egg-hunter:html5
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -o butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Subir la carpeta game/ a itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: ./butler push game "$ITCH_TARGET" --userversion "${{ github.sha }}"

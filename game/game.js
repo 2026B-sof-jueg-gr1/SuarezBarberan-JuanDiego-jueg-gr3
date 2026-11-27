@@ -232,6 +232,10 @@ function create() {
         togglePauseGame();
     });
 
+    // M: silenciar / activar audio
+    this.input.keyboard.removeAllListeners('keydown-M');
+    this.input.keyboard.on('keydown-M', () => { if (window.SFX) SFX.toggleMute(); });
+
     scene.input.on('pointermove', (pointer) => {
         if (!cuttingActive) return;
         const deltaX = pointer.x - lastMouseX;
@@ -823,6 +827,7 @@ function tickLarva(larva) {
     const g = larva.g;
     if (!g || !g.active) { killLarva(larva); return; }
     if (larva.state === 'dead') return;
+    if (isPaused) return; // las larvas se congelan durante la pausa
     const DT = 0.016;
 
     // ── Detectar entidad más cercana ──
@@ -1357,6 +1362,7 @@ function hitEnemy(p,enemy) {
 
     lives--;
     livesText.setText('Salud: '+lives);
+    if (window.SFX) SFX.hit();
     leaveCorpse(enemy);
     if (lives<=0) return endGame();
 
@@ -1398,6 +1404,7 @@ function shootBullet() {
     bullet.body.setVelocity(facingLeft ? -580 : 580, 0);
     bullet.body.setAllowGravity(false);
     lastFired = scene.time.now + 280;
+    if (window.SFX) SFX.shoot();
     // flash en el cañón
     const flash = scene.add.circle(bx + (facingLeft ? -12 : 12), by, 6, 0xffffff, 0.9);
     flash.setDepth(player.y + 1);
@@ -1568,6 +1575,7 @@ function completeVenom() {
     const ey = targetCorpse ? targetCorpse.y - 30 : player.y;
     money += 150;
     moneyText.setText('Dinero: $'+money);
+    if (window.SFX) SFX.venom();
     closeVenomUI();
     // cadáver se desintegra levemente
     if (targetCorpse) scene.tweens.add({targets:targetCorpse, alpha:0.3, scaleX:0.5, scaleY:0.5, duration:500});
@@ -1617,6 +1625,8 @@ function completeCutting() {
     scoreText.setText('Huevos: '+score+' / 10');
     moneyText.setText('Dinero: $'+money);
     closeCuttingUI();
+    if (window.SFX) SFX.cut();
+    if (score === 10) showComms('Muestras completas. Pide extracción con [E] y resiste hasta abordar.', true);
     const ft=scene.add.text(ex,ey,'+ $300',{fontFamily:'Courier, monospace',fontSize:'22px',fill:'#00ffcc',stroke:'#000000',strokeThickness:4}).setOrigin(0.5).setDepth(25000);
     scene.tweens.add({targets:ft,y:ey-70,alpha:0,scale:1.4,duration:1200,ease:'Power2',onComplete:()=>ft.destroy()});
     if (score>3&&!motherActive) summonMother();
@@ -1630,6 +1640,7 @@ function closeCuttingUI() { cuttingActive=false; targetCoin=null; cutUIElements.
 // ──────────────────────────────────────────
 function summonMother() {
     motherActive=true;
+    if (window.SFX) SFX.mother();
     scene.cameras.main.shake(1400,0.02);
     scene.tweens.add({targets:ambientOverlay,alpha:0.28,duration:1500});
     scene.tweens.add({targets:fogOverlay,alpha:0.35,duration:1500});
@@ -1722,6 +1733,7 @@ function showComms(message, good) {
 function triggerExtraction() {
     if (extracting||!gameStarted||isPaused||cuttingActive) return;
     extracting=true; extractionPhase=0; window.extractingStartTime=scene.time.now;
+    if (window.SFX) SFX.extract();
     if (!playerAlerted) { playerAlerted=true; scene.cameras.main.shake(600,0.01); }
 
     const pc = player.body ? player.body.center : {x:player.x, y:player.y};
@@ -1792,13 +1804,18 @@ function triggerExtraction() {
 // ──────────────────────────────────────────
 function triggeredVictory() {
     clearComms(); stopMother(); scene.physics.pause();
+    if (window.SFX) SFX.win();
+    // Sin huevos: escapaste, pero la corporación no te paga
+    const empty = score === 0;
+    const c1 = empty ? '#ffaa00' : '#00ff41';
+    const s1 = empty ? '#4a3000' : '#003310';
     scene.add.rectangle(400,300,800,600,0x000000,0.85).setScrollFactor(0).setDepth(10000);
-    scene.add.text(400,210,'MISIÓN', {fontFamily:'Courier, monospace',fontSize:'64px',fill:'#00ff41',stroke:'#003310',strokeThickness:6,align:'center'})
+    scene.add.text(400,210,empty ? 'SIN' : 'MISIÓN', {fontFamily:'Courier, monospace',fontSize:'64px',fill:c1,stroke:s1,strokeThickness:6,align:'center'})
         .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
-    scene.add.text(400,285,'CUMPLIDA', {fontFamily:'Courier, monospace',fontSize:'54px',fill:'#00ff41',stroke:'#003310',strokeThickness:6,align:'center'})
+    scene.add.text(400,285,empty ? 'BOTÍN' : 'CUMPLIDA', {fontFamily:'Courier, monospace',fontSize:'54px',fill:c1,stroke:s1,strokeThickness:6,align:'center'})
         .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     scene.add.text(400,350,'Huevos extraídos: '+score+' / 10',{fontFamily:'Courier, monospace',fontSize:'16px',fill:'#ffffff'}).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
-    scene.add.text(400,382,'Dinero total: $'+money+' / $3000',{fontFamily:'Courier, monospace',fontSize:'18px',fill:'#00ffcc'}).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+    scene.add.text(400,382,'Dinero total: $'+money,{fontFamily:'Courier, monospace',fontSize:'18px',fill:'#00ffcc'}).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     const btn=scene.add.text(400,430,'PRESIONA ESPACIO PARA VOLVER A JUGAR',{fontFamily:'Courier, monospace',fontSize:'14px',fill:'#00ff41',backgroundColor:'#222',padding:{x:10,y:5}}).setOrigin(0.5).setScrollFactor(0).setDepth(10001).setInteractive();
     btn.on('pointerdown',()=>{ scene.scene.restart(); });
     scene.input.keyboard.removeAllListeners('keydown-SPACE');
@@ -1807,6 +1824,7 @@ function triggeredVictory() {
 
 function endGame() {
     clearComms(); stopMother(); scene.physics.pause();
+    if (window.SFX) SFX.lose();
     scene.add.rectangle(400,300,800,600,0x000000,0.85).setScrollFactor(0).setDepth(10000);
     scene.add.text(400,230,'MISIÓN', {fontFamily:'Courier, monospace',fontSize:'64px',fill:'#ff0055',stroke:'#500010',strokeThickness:6,align:'center'})
         .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
@@ -1842,18 +1860,19 @@ function togglePauseGame() {
              stroke:'#001a08',strokeThickness:8,shadow:{offsetX:0,offsetY:0,color:'#00ff41',blur:18,fill:true}})
             .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
         // HUD actual visible (salud, dinero, huevos)
-        const info=scene.add.text(400,305,
-            'Huevos: '+score+' / 10    Dinero: $'+money+'    Salud: '+lives,
-            {fontFamily:'Courier, monospace',fontSize:'14px',fill:'#aaffcc'})
-            .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+        const info=scene.add.text(400,295,
+            'Huevos: '+score+' / 10    Dinero: $'+money+'    Salud: '+lives+
+            '\n\nFlechas: mover   F: disparar   E: extracción\nESPACIO: pausa   M: silenciar\nCortar huevo: acércate y desliza el mouse →',
+            {fontFamily:'Courier, monospace',fontSize:'13px',fill:'#aaffcc',align:'center',lineSpacing:4})
+            .setOrigin(0.5,0).setScrollFactor(0).setDepth(10001);
         // Instrucción
-        const sub=scene.add.text(400,355,'Pulsa ESPACIO o haz click para continuar',
+        const sub=scene.add.text(400,425,'Pulsa ESPACIO o haz click para continuar',
             {fontFamily:'Courier, monospace',fontSize:'15px',fill:'#ffffff',alpha:0.9})
             .setOrigin(0.5).setScrollFactor(0).setDepth(10001);
         // parpadeo en el sub
         scene.tweens.add({targets:sub,alpha:0.3,duration:600,yoyo:true,repeat:-1});
         // Línea decorativa inferior
-        const lineB=scene.add.rectangle(400,385,340,2,0x00ff41,1).setScrollFactor(0).setDepth(10001);
+        const lineB=scene.add.rectangle(400,455,340,2,0x00ff41,1).setScrollFactor(0).setDepth(10001);
         // click para reanudar
         bg.setInteractive().on('pointerdown', togglePauseGame);
         pauseElements.push(bg,lineT,title,info,sub,lineB);

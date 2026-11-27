@@ -15,6 +15,7 @@
         width: 100%; height: 100%;
         background: #100909;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         overflow: hidden;
@@ -37,15 +38,26 @@
         height: 100% !important;
         touch-action: manipulation;
       }
+
+      .back {
+        margin-top: 10px;
+        color: #c4b0b0;
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        text-decoration: none;
+      }
+      .back:hover { color: #e34242; }
     </style>
   </head>
   <body>
     <div id="game-container"></div>
+    <a class="back" href="../">&larr; VOLVER AL ESCAPARATE</a>
 
     <!-- Phaser 3 -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 
-    <!-- Lógica del juego -->
+    <!-- Audio procedural y lógica del juego -->
+    <script src="sfx.js"></script>
     <script src="game.js"></script>
   </body>
 </html>
